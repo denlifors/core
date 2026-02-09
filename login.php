@@ -6,6 +6,11 @@ if (isLoggedIn()) {
 }
 
 $error = '';
+$info = '';
+$prefillLogin = sanitize($_GET['reg_id'] ?? '');
+if (!empty($_GET['confirmed'])) {
+    $info = 'Регистрация подтверждена. Введите ваш ID и пароль для входа.';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $login = sanitize($_POST['login'] ?? '');
@@ -13,18 +18,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     $db = getDBConnection();
     // Проверяем, является ли ввод email или ID
+    $candidates = [];
     if (is_numeric($login)) {
-        // Если это число, ищем по ID
+        // 1) По ID пользователя
         $stmt = $db->prepare("SELECT * FROM users WHERE id = :id");
         $stmt->execute([':id' => (int)$login]);
+        $u = $stmt->fetch();
+        if ($u) {
+            $candidates[$u['id']] = $u;
+        }
+
+        // 2) По ID заявки партнёра
+        $stmt = $db->prepare("SELECT email FROM partner_registrations WHERE id = :id AND status = 'confirmed' LIMIT 1");
+        $stmt->execute([':id' => (int)$login]);
+        $reg = $stmt->fetch();
+        if ($reg && !empty($reg['email'])) {
+            $stmt = $db->prepare("SELECT * FROM users WHERE email = :email");
+            $stmt->execute([':email' => $reg['email']]);
+            $u2 = $stmt->fetch();
+            if ($u2) {
+                $candidates[$u2['id']] = $u2;
+            }
+        }
     } else {
         // Иначе ищем по email
         $stmt = $db->prepare("SELECT * FROM users WHERE email = :email");
         $stmt->execute([':email' => $login]);
+        $u = $stmt->fetch();
+        if ($u) {
+            $candidates[$u['id']] = $u;
+        }
     }
-    $user = $stmt->fetch();
+
+    $user = null;
+    foreach ($candidates as $cand) {
+        if ($cand && password_verify($password, $cand['password'])) {
+            $user = $cand;
+            break;
+        }
+    }
     
-    if ($user && password_verify($password, $user['password'])) {
+    if ($user) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_email'] = $user['email'];
         
@@ -41,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_is_admin'] = ($user['role'] === 'admin');
         }
         
-        $redirect = $_SESSION['redirect_after_login'] ?? 'dashboard.php';
+        $redirect = $_SESSION['redirect_after_login'] ?? 'dashboard.php?section=shop';
         unset($_SESSION['redirect_after_login']);
         redirect($redirect);
     } else {
@@ -88,6 +122,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if ($error): ?>
                 <div class="login-error"><?php echo $error; ?></div>
             <?php endif; ?>
+            <?php if ($info): ?>
+                <div class="login-success"><?php echo $info; ?></div>
+            <?php endif; ?>
             
             <form method="POST" class="login-form">
                 <div class="login-form-group">
@@ -106,6 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             placeholder="Ваш регистрационный номер" 
                             required 
                             autofocus
+                            value="<?php echo htmlspecialchars($prefillLogin); ?>"
                         >
                     </div>
                 </div>

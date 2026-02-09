@@ -1,193 +1,192 @@
-            </div>
         </main>
+        <aside class="dash__profile">
+          <div class="dash__profileTop">
+            <div class="dash__user">
+              <div class="dash__userBadge">
+                <img class="dash__rankTop" src="<?php echo $assetsImg; ?>/rank_top.png" alt="" />
+                <img class="dash__rankMid" src="<?php echo $assetsImg; ?>/rank_mid.png" alt="" />
+                <img class="dash__avatar" src="<?php echo $assetsImg; ?>/avatar.jpg" alt="" />
+                <img class="dash__rankLabel" src="<?php echo $assetsImg; ?>/rank_label.png" alt="" />
+                <div class="dash__rankText">Партнёр</div>
+              </div>
+              <div class="dash__userNameRow">
+                <div class="dash__userName"><?php echo htmlspecialchars($fullName); ?></div>
+                <span class="dash__onlineDot" aria-hidden="true"></span>
+              </div>
+              <div class="dash__userId">ID: <?php echo htmlspecialchars($registrationId ?: $userData['id']); ?></div>
+            </div>
+
+            <div class="dash__partnerLink">
+              <div class="dash__partnerLinkLabel">Партнерская ссылка:</div>
+              <div class="dash__partnerLinkRow">
+                <div class="dash__partnerLinkValue">
+                  <?php echo $partnerLink ? htmlspecialchars($partnerLink) : 'Ссылка появится после активации'; ?>
+                </div>
+                <div class="dash__partnerLinkIcons">
+                  <button class="dash__miniIcon" type="button" aria-label="Копировать" data-copy-link="<?php echo htmlspecialchars($partnerLink); ?>">
+                    <img src="<?php echo $assetsImg; ?>/icons/copy.svg" alt="" />
+                  </button>
+                  <button class="dash__miniIcon" type="button" aria-label="QR">
+                    <img src="<?php echo $assetsImg; ?>/icons/qr.svg" alt="" />
+                  </button>
+                  <button class="dash__miniIcon" type="button" aria-label="Поделиться">
+                    <img src="<?php echo $assetsImg; ?>/icons/share.svg" alt="" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash__profileMid">
+            <div class="dash__kpis">
+              <div class="dash__kpiRow">
+                <div class="dash__kpiIcon dash__kpiIcon--cyan">
+                  <img src="<?php echo $assetsImg; ?>/icons/credit-card.svg" alt="" />
+                </div>
+                <div class="dash__kpiText">
+                  <div class="dash__kpiValueRow is-bold">
+                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiUnit">DV</span>
+                  </div>
+                  <div class="dash__kpiLabel">Общая сумма DV</div>
+                </div>
+              </div>
+
+              <div class="dash__kpiRow">
+                <div class="dash__kpiIcon dash__kpiIcon--magenta">
+                  <img src="<?php echo $assetsImg; ?>/icons/coins 1 +.svg" alt="" />
+                </div>
+                <div class="dash__kpiText">
+                  <div class="dash__kpiValueRow">
+                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiUnit">DV</span>
+                  </div>
+                  <div class="dash__kpiLabel">«Накопительный» кешбэк</div>
+                </div>
+              </div>
+
+              <div class="dash__kpiRow">
+                <div class="dash__kpiIcon dash__kpiIcon--gold">
+                  <img src="<?php echo $assetsImg; ?>/icons/coins 2 (1).svg" alt="" />
+                </div>
+                <div class="dash__kpiText">
+                  <div class="dash__kpiValueRow">
+                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiUnit">DV</span>
+                  </div>
+                  <div class="dash__kpiLabel">Бонус «3 круга влияния»</div>
+                </div>
+              </div>
+
+              <div class="dash__kpiRow">
+                <div class="dash__kpiIcon dash__kpiIcon--green">
+                  <img src="<?php echo $assetsImg; ?>/icons/coins 2.svg" alt="" />
+                </div>
+                <div class="dash__kpiText">
+                  <div class="dash__kpiValueRow">
+                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiUnit">DV</span>
+                  </div>
+                  <div class="dash__kpiLabel">Бонус «Баланс»</div>
+                </div>
+              </div>
+
+              <div class="dash__kpiRow">
+                <div class="dash__kpiIcon dash__kpiIcon--violet">
+                  <img src="<?php echo $assetsImg; ?>/icons/coins 2 +.svg" alt="" />
+                </div>
+                <div class="dash__kpiText">
+                  <div class="dash__kpiValueRow">
+                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiUnit">DV</span>
+                  </div>
+                  <div class="dash__kpiLabel">Бонус «Роста»</div>
+                </div>
+              </div>
+
+              <div class="dash__kpiRow">
+                <div class="dash__kpiIcon dash__kpiIcon--cyan">
+                  <img src="<?php echo $assetsImg; ?>/icons/coins.svg" alt="" />
+                </div>
+                <div class="dash__kpiText">
+                  <div class="dash__kpiValueRow">
+                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiUnit">DV</span>
+                  </div>
+                  <div class="dash__kpiLabel">«Глобальный» бонус</div>
+                </div>
+              </div>
+
+              <div class="dash__kpiRow">
+                <div class="dash__kpiIcon dash__kpiIcon--lilac">
+                  <img src="<?php echo $assetsImg; ?>/icons/coins 2.svg" alt="" />
+                </div>
+                <div class="dash__kpiText">
+                  <div class="dash__kpiValueRow">
+                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiUnit">DV</span>
+                  </div>
+                  <div class="dash__kpiLabel">«Представительский» бонус</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dash__consultant">
+              <div class="dash__consultantHead">Ваш консультант</div>
+              <div class="dash__consultantBody">
+                <div class="dash__consultantBadge">
+                  <img class="dash__rankTop" src="<?php echo $assetsImg; ?>/rank_top.png" alt="" />
+                  <img class="dash__rankMid" src="<?php echo $assetsImg; ?>/rank_mid.png" alt="" />
+                  <img class="dash__avatar" src="<?php echo $assetsImg; ?>/avatar.jpg" alt="" />
+                  <img class="dash__rankLabel" src="<?php echo $assetsImg; ?>/rank_label.png" alt="" />
+                  <div class="dash__rankText">Партнёр</div>
+                </div>
+                <div class="dash__consultantInfo">
+                  <div class="dash__consultantName"><?php echo htmlspecialchars($consultantName); ?></div>
+                  <div class="dash__consultantId">ID: <?php echo htmlspecialchars($consultantId); ?></div>
+                </div>
+              </div>
+              <div class="dash__consultantActions">
+                <a class="dash__social dash__social--tg" href="#">
+                  <img src="<?php echo $assetsImg; ?>/icons/tg.svg" alt="" />
+                </a>
+                <a class="dash__social dash__social--vk" href="#">
+                  <img src="<?php echo $assetsImg; ?>/icons/vk.svg" alt="" />
+                </a>
+                <a class="dash__social dash__social--mail" href="#">
+                  <img src="<?php echo $assetsImg; ?>/icons/mail.svg" alt="" />
+                </a>
+                <a class="dash__social dash__social--phone" href="#">
+                  <img src="<?php echo $assetsImg; ?>/icons/phone.svg" alt="" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
-    
-    <script>
-    // Define BASE_URL for JavaScript
-    window.BASE_URL = '<?php echo BASE_URL; ?>';
-    
-    // Search Modal
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchToggle = document.getElementById('dashboard-search-toggle');
-        const searchModal = document.getElementById('dashboard-search-modal');
-        const searchClose = document.getElementById('dashboard-search-close');
-        
-        if (searchToggle && searchModal) {
-            searchToggle.addEventListener('click', function() {
-                searchModal.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-                const input = searchModal.querySelector('.dashboard-search-input');
-                if (input) {
-                    setTimeout(() => input.focus(), 100);
-                }
-            });
-        }
-        
-        if (searchClose && searchModal) {
-            searchClose.addEventListener('click', function() {
-                searchModal.style.display = 'none';
-                document.body.style.overflow = '';
-            });
-        }
-        
-        if (searchModal) {
-            searchModal.addEventListener('click', function(e) {
-                if (e.target === searchModal) {
-                    searchModal.style.display = 'none';
-                    document.body.style.overflow = '';
-                }
-            });
-        }
-        
-        // Update cart count on load
-        updateDashboardCartCount();
+  </div>
+</div>
+</div>
+<script>
+  document.querySelectorAll('[data-copy-link]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const link = btn.getAttribute('data-copy-link');
+      if (!link) return;
+      try {
+        await navigator.clipboard.writeText(link);
+        btn.classList.add('is-copied');
+        setTimeout(() => btn.classList.remove('is-copied'), 1200);
+      } catch (e) {
+        const input = document.createElement('input');
+        input.value = link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+      }
     });
-    
-    function updateDashboardCartCount() {
-        const baseUrl = window.BASE_URL || '<?php echo BASE_URL; ?>';
-        fetch(baseUrl + 'api/cart-count.php')
-            .then(response => response.json())
-            .then(data => {
-                const cartCount = document.getElementById('dashboard-cart-count');
-                const count = data.count || 0;
-                if (cartCount) {
-                    if (count > 0) {
-                        cartCount.textContent = count;
-                        cartCount.style.display = 'flex';
-                    } else {
-                        cartCount.style.display = 'none';
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-    }
-    
-    // Global function for showing notifications
-    function showNotification(message, type = 'success') {
-        const notification = document.createElement('div');
-        notification.className = `dashboard-notification dashboard-notification-${type}`;
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed;
-            top: 100px;
-            right: 20px;
-            background: ${type === 'success' ? '#48bb78' : '#f56565'};
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 10001;
-            animation: slideIn 0.3s ease;
-            font-weight: 500;
-        `;
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    document.body.removeChild(notification);
-                }
-            }, 300);
-        }, 3000);
-    }
-    
-    // Become Partner Modal
-    <?php if (isset($isClient) && $isClient): ?>
-    (function() {
-        const becomePartnerBtn = document.getElementById('become-partner-btn');
-        const becomePartnerModal = document.getElementById('become-partner-modal');
-        const closeModal = document.getElementById('close-become-partner-modal');
-        const cancelBtn = document.getElementById('become-partner-cancel');
-        const submitBtn = document.getElementById('become-partner-submit');
-        const checkboxes = document.querySelectorAll('.become-partner-doc-checkbox');
-        
-        if (becomePartnerBtn && becomePartnerModal) {
-            becomePartnerBtn.addEventListener('click', function() {
-                becomePartnerModal.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-            });
-        }
-        
-        function closeModalFunc() {
-            if (becomePartnerModal) {
-                becomePartnerModal.style.display = 'none';
-                document.body.style.overflow = '';
-            }
-        }
-        
-        if (closeModal) {
-            closeModal.addEventListener('click', closeModalFunc);
-        }
-        
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', closeModalFunc);
-        }
-        
-        if (becomePartnerModal) {
-            becomePartnerModal.addEventListener('click', function(e) {
-                if (e.target === becomePartnerModal) {
-                    closeModalFunc();
-                }
-            });
-        }
-        
-        // Проверка всех чекбоксов
-        function checkAllChecked() {
-            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-            if (submitBtn) {
-                submitBtn.disabled = !allChecked;
-            }
-        }
-        
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', checkAllChecked);
-        });
-        
-        // Подписание документов
-        if (submitBtn) {
-            submitBtn.addEventListener('click', function() {
-                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-                if (!allChecked) {
-                    alert('Необходимо согласиться со всеми документами');
-                    return;
-                }
-                
-                if (!confirm('Вы уверены, что хотите стать партнёром? После подписания ваш статус изменится на "Партнёр".')) {
-                    return;
-                }
-                
-                const baseUrl = window.BASE_URL || '<?php echo BASE_URL; ?>';
-                fetch(baseUrl + 'api/become-partner.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'become_partner'
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Поздравляем! Теперь вы партнёр ДенЛиФорс');
-                        location.reload();
-                    } else {
-                        alert('Ошибка: ' + (data.message || 'Не удалось изменить статус'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Произошла ошибка при изменении статуса');
-                });
-            });
-        }
-    })();
-    <?php endif; ?>
-    </script>
+  });
+</script>
 </body>
 </html>
-

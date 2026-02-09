@@ -21,7 +21,7 @@ if (!$registration) {
 }
 
 if ($registration['status'] === 'confirmed') {
-    redirect('dashboard.php?section=shop');
+    redirect('login.php?confirmed=1&reg_id=' . $registration['id']);
 }
 
 $createdAt = new DateTime($registration['created_at']);
@@ -33,11 +33,19 @@ if (new DateTime() > $expiresAt) {
     exit;
 }
 
-// Create partner in core (Supabase)
+// Create partner in core
 $error = null;
-$coreResult = corePostJson('/register-customer', [
+$sponsorPartnerId = $registration['sponsor_partner_id'] ?? null;
+if (!$sponsorPartnerId) {
+    http_response_code(400);
+    echo 'Не указан реферальный партнёр. Отправьте заявку повторно.';
+    exit;
+}
+
+$coreResult = corePostJson('/register-partner', [
     'email' => $registration['email'],
-    'password' => $registration['password_plain']
+    'password' => $registration['password_plain'],
+    'sponsorPartnerId' => $sponsorPartnerId
 ], $error);
 
 if (!$coreResult || $coreResult['status'] >= 400) {
@@ -47,7 +55,7 @@ if (!$coreResult || $coreResult['status'] >= 400) {
 }
 
 $coreUserId = $coreResult['data']['user']['id'] ?? null;
-$coreCustomerId = $coreResult['data']['customer']['id'] ?? null;
+$corePartnerId = $coreResult['data']['partner']['id'] ?? null;
 
 // Update registration status and clear plain password
 $stmt = $db->prepare(
@@ -55,14 +63,14 @@ $stmt = $db->prepare(
      SET status = 'confirmed',
          confirmed_at = NOW(),
          core_user_id = :core_user_id,
-         core_partner_id = NULL,
-         core_customer_id = :core_customer_id,
+        core_partner_id = :core_partner_id,
+        core_customer_id = NULL,
          password_plain = NULL
      WHERE id = :id"
 );
 $stmt->execute([
     ':core_user_id' => $coreUserId,
-    ':core_customer_id' => $coreCustomerId,
+    ':core_partner_id' => $corePartnerId,
     ':id' => $registration['id']
 ]);
 
@@ -74,38 +82,35 @@ $existingUser = $stmt->fetch();
 if ($existingUser) {
     $stmt = $db->prepare(
         "UPDATE users
-         SET role = 'user',
+         SET role = 'partner',
              core_user_id = :core_user_id,
-             core_partner_id = NULL,
-             core_customer_id = :core_customer_id
+            core_partner_id = :core_partner_id,
+            core_customer_id = NULL
          WHERE id = :id"
     );
     $stmt->execute([
         ':core_user_id' => $coreUserId,
-        ':core_customer_id' => $coreCustomerId,
+        ':core_partner_id' => $corePartnerId,
         ':id' => $existingUser['id']
     ]);
     $localUserId = $existingUser['id'];
 } else {
     $stmt = $db->prepare(
-        "INSERT INTO users (email, password, first_name, phone, role, core_user_id, core_partner_id, core_customer_id)
-         VALUES (:email, :password, :first_name, :phone, 'user', :core_user_id, NULL, :core_customer_id)"
+        "INSERT INTO users (email, password, first_name, last_name, phone, role, core_user_id, core_partner_id, core_customer_id)
+         VALUES (:email, :password, :first_name, :last_name, :phone, 'partner', :core_user_id, :core_partner_id, NULL)"
     );
     $stmt->execute([
         ':email' => $registration['email'],
         ':password' => $registration['password_hash'],
-        ':first_name' => $registration['name'],
+        ':first_name' => $registration['first_name'] ?: $registration['name'],
+        ':last_name' => $registration['last_name'],
         ':phone' => $registration['phone'],
         ':core_user_id' => $coreUserId,
-        ':core_customer_id' => $coreCustomerId
+        ':core_partner_id' => $corePartnerId
     ]);
     $localUserId = $db->lastInsertId();
 }
 
-// Auto-login after confirmation
-$_SESSION['user_id'] = $localUserId;
-$_SESSION['user_email'] = $registration['email'];
-$_SESSION['user_role'] = 'user';
-
-redirect('dashboard.php?section=shop');
+// После подтверждения отправляем на страницу входа
+redirect('login.php?confirmed=1&reg_id=' . $registration['id']);
 ?>

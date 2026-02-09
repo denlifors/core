@@ -43,12 +43,15 @@ try {
         "CREATE TABLE IF NOT EXISTS partner_registrations (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
+            first_name VARCHAR(255) NULL,
+            last_name VARCHAR(255) NULL,
             email VARCHAR(255) NOT NULL,
             phone VARCHAR(20) NOT NULL,
             password_plain VARCHAR(255) NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
             token VARCHAR(64) NOT NULL UNIQUE,
             status ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
+            sponsor_partner_id VARCHAR(64) NULL,
             core_user_id VARCHAR(64) NULL,
             core_partner_id VARCHAR(64) NULL,
             core_customer_id VARCHAR(64) NULL,
@@ -62,6 +65,18 @@ try {
     // Ensure core_customer_id exists in partner_registrations
     try {
         $regColumns = $db->query("SHOW COLUMNS FROM partner_registrations")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('first_name', $regColumns)) {
+            $db->exec("ALTER TABLE partner_registrations ADD COLUMN first_name VARCHAR(255) NULL");
+            echo "<p class='success'>✓ Добавлено поле first_name в partner_registrations</p>";
+        }
+        if (!in_array('last_name', $regColumns)) {
+            $db->exec("ALTER TABLE partner_registrations ADD COLUMN last_name VARCHAR(255) NULL");
+            echo "<p class='success'>✓ Добавлено поле last_name в partner_registrations</p>";
+        }
+        if (!in_array('sponsor_partner_id', $regColumns)) {
+            $db->exec("ALTER TABLE partner_registrations ADD COLUMN sponsor_partner_id VARCHAR(64) NULL");
+            echo "<p class='success'>✓ Добавлено поле sponsor_partner_id в partner_registrations</p>";
+        }
         if (!in_array('core_customer_id', $regColumns)) {
             $db->exec("ALTER TABLE partner_registrations ADD COLUMN core_customer_id VARCHAR(64) NULL");
             echo "<p class='success'>✓ Добавлено поле core_customer_id в partner_registrations</p>";

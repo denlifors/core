@@ -40,4 +40,35 @@ function corePostJson($path, $payload, &$error = null) {
         'data' => $data
     ];
 }
+
+function coreGetJson($path, &$error = null) {
+    $url = rtrim(CORE_API_BASE_URL, '/') . '/' . ltrim($path, '/');
+
+    if (!function_exists('curl_init')) {
+        $error = 'cURL is not available';
+        return null;
+    }
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+
+    $response = curl_exec($ch);
+    if ($response === false) {
+        $error = 'Core request failed: ' . curl_error($ch);
+        curl_close($ch);
+        return null;
+    }
+
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $data = json_decode($response, true);
+    return [
+        'status' => $status,
+        'raw' => $response,
+        'data' => $data
+    ];
+}
 ?>

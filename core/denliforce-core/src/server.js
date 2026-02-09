@@ -201,6 +201,16 @@ function getMaxInfluenceCircle(selfMonthDv) {
   return 0;
 }
 
+function getBaseUrl(req) {
+  const proto = (req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  const host = req.headers.host || 'localhost';
+  return `${proto}://${host}`;
+}
+
+function buildReferralLink(req, partnerId) {
+  const base = process.env.REFERRAL_BASE_URL || getBaseUrl(req);
+  return `${base}/register.php?ref=${partnerId}`;
+}
 
 
 async function placeInBinary(tx, sponsorPartnerId, side, newPartnerId) {
@@ -281,11 +291,12 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ ok: true }));
     }
 
-    // POST /register-partner
-    // body: { email, password, sponsorPartnerId?, side: "LEFT"|"RIGHT" }
-    if (req.method === 'POST' && req.url === '/register-partner') {
+    // POST /bootstrap/partner
+    // body: { email, password }
+    // allowed only if no partners exist yet
+    if (req.method === 'POST' && req.url === '/bootstrap/partner') {
       const body = await readJson(req);
-      const { email, password, sponsorPartnerId = null, side = 'LEFT' } = body;
+      const { email, password } = body;
 
       if (!email || !password) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -293,6 +304,80 @@ const server = http.createServer(async (req, res) => {
       }
 
       const result = await prisma.$transaction(async (tx) => {
+        const totalPartners = await tx.partner.count();
+        if (totalPartners > 0) {
+          throw new Error('bootstrap is allowed only when no partners exist');
+        }
+
+        const user = await tx.user.create({
+          data: { email, password, role: 'PARTNER' },
+        });
+
+        const partner = await tx.partner.create({
+          data: { userId: user.id, sponsorId: null },
+        });
+
+        const wallet = await tx.wallet.create({
+          data: { partnerId: partner.id, balance: 0 },
+        });
+
+        const node = await placeInBinary(tx, null, 'LEFT', partner.id);
+
+        return { user, partner, wallet, node };
+      });
+
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        ...result,
+        referralLink: buildReferralLink(req, result.partner.id),
+      }));
+    }
+
+    // POST /register-partner
+    // body: { email, password, sponsorPartnerId, side: "LEFT"|"RIGHT" }
+    if (req.method === 'POST' && req.url === '/register-partner') {
+      const body = await readJson(req);
+      const { email, password, sponsorPartnerId, side = 'LEFT' } = body;
+
+      if (!email || !password || !sponsorPartnerId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'email, password, sponsorPartnerId required' }));
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const sponsor = await tx.partner.findUnique({
+          where: { id: sponsorPartnerId },
+          select: { id: true },
+        });
+        if (!sponsor) throw new Error('sponsor not found');
+
+        // Если пользователь уже есть — используем его
+        const existingUser = await tx.user.findUnique({
+          where: { email },
+          include: { partner: true },
+        });
+
+        if (existingUser) {
+          let partner = existingUser.partner;
+          if (!partner) {
+            partner = await tx.partner.create({
+              data: { userId: existingUser.id, sponsorId: sponsorPartnerId },
+            });
+          }
+
+          let wallet = await tx.wallet.findFirst({ where: { partnerId: partner.id } });
+          if (!wallet) {
+            wallet = await tx.wallet.create({ data: { partnerId: partner.id, balance: 0 } });
+          }
+
+          let node = await tx.binaryNode.findUnique({ where: { partnerId: partner.id } });
+          if (!node) {
+            node = await placeInBinary(tx, sponsorPartnerId, side, partner.id);
+          }
+
+          return { user: existingUser, partner, wallet, node };
+        }
+
         const user = await tx.user.create({
           data: { email, password, role: 'PARTNER' },
         });
@@ -311,7 +396,10 @@ const server = http.createServer(async (req, res) => {
       });
 
       res.writeHead(201, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify(result));
+      return res.end(JSON.stringify({
+        ...result,
+        referralLink: buildReferralLink(req, result.partner.id),
+      }));
     }
 
     // POST /register-customer
@@ -339,6 +427,62 @@ const server = http.createServer(async (req, res) => {
 
       res.writeHead(201, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify(result));
+    }
+    // GET /referral-link?partnerId=...
+    if (req.method === 'GET' && req.url.startsWith('/referral-link')) {
+      const url = new URL(req.url, 'http://localhost');
+      const partnerId = url.searchParams.get('partnerId');
+
+      if (!partnerId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'partnerId required' }));
+      }
+
+      const partner = await prisma.partner.findUnique({
+        where: { id: partnerId },
+        select: { id: true },
+      });
+      if (!partner) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'partner not found' }));
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        partnerId,
+        referralLink: buildReferralLink(req, partnerId),
+      }));
+    }
+    // GET /partner-summary?partnerId=...
+    if (req.method === 'GET' && req.url.startsWith('/partner-summary')) {
+      const url = new URL(req.url, 'http://localhost');
+      const partnerId = url.searchParams.get('partnerId');
+
+      if (!partnerId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'partnerId required' }));
+      }
+
+      const partner = await prisma.partner.findUnique({
+        where: { id: partnerId },
+        select: {
+          id: true,
+          sponsorId: true,
+          user: { select: { id: true, email: true } },
+        },
+      });
+
+      if (!partner) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'partner not found' }));
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        partnerId: partner.id,
+        sponsorId: partner.sponsorId,
+        user: partner.user,
+      }));
     }
 // GET /debug/partner-id?email=...
 if (req.method === 'GET' && req.url.startsWith('/debug/partner-id')) {

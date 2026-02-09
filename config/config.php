@@ -5,6 +5,16 @@ session_start();
 // Base URL
 define('BASE_URL', 'http://localhost/DenLiFors/');
 
+// Core API
+define('CORE_API_BASE_URL', 'http://localhost:3000');
+
+// Partner confirmation settings
+define('PARTNER_CONFIRM_TTL_HOURS', 48);
+
+// Mail settings
+define('MAIL_FROM', 'admin@denlifors.ru');
+define('MAIL_FROM_NAME', 'ДенЛиФорс');
+
 // Site settings
 define('SITE_NAME', 'ДенЛиФорс');
 define('SITE_DESCRIPTION', 'Интернет-магазин биологически активных добавок');

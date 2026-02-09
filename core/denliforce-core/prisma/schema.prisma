@@ -57,9 +57,14 @@ model Partner {
   cashbackWallet PartnerCashbackWallet?
   orders         Order[]
   weeklyStats    WeeklyBinaryStats[]
-    status        PartnerStatus @default(PENDING)
+  monthlyStats   PartnerMonthlyStats[]
+  annualBonuses  AnnualGlobalBonusPayout[]
+  status        PartnerStatus @default(PENDING)
   activatedAt   DateTime?
   deactivatedAt DateTime?
+  entryQualifiedAt DateTime?
+  officeCity      String?
+  officeOpenedAt  DateTime?
 
   @@index([sponsorId])
 }
@@ -68,16 +73,21 @@ model Customer {
   id        String @id @default(uuid())
   userId    String @unique
   partnerId String
+  referrerId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  partner Partner @relation(fields: [partnerId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partner   Partner   @relation(fields: [partnerId], references: [id])
+  referrer  Customer? @relation("CustomerReferral", fields: [referrerId], references: [id])
+  referrals Customer[] @relation("CustomerReferral")
 
-  orders Order[]
+  orders          Order[]
+  cashbackWallet  CustomerCashbackWallet?
 
   @@index([partnerId])
+  @@index([referrerId])
 }
 
 model BinaryNode {
@@ -244,6 +254,11 @@ model WeeklyBinaryStats {
 
   leftDv  Int @default(0)
   rightDv Int @default(0)
+  pairedDv     Int @default(0)
+  leftCarryDv  Int @default(0)
+  rightCarryDv Int @default(0)
+  bonusAmount  Int @default(0)
+  bonusPercent Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -252,4 +267,170 @@ model WeeklyBinaryStats {
 
   @@unique([partnerId, weekStart])
   @@index([weekStart])
+}
+
+model PartnerMonthlyStats {
+  id        String   @id @default(uuid())
+  partnerId String
+  monthStart DateTime
+
+  personalDv     Int @default(0)
+  personalAmount Int @default(0)
+  leftDv         Int @default(0)
+  rightDv        Int @default(0)
+  structureDv    Int @default(0)
+  isActive       Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, monthStart])
+  @@index([monthStart])
+}
+
+model AnnualGlobalBonus {
+  id          String @id @default(uuid())
+  year        Int    @unique
+  totalAmount Int
+
+  createdAt DateTime @default(now())
+
+  payouts AnnualGlobalBonusPayout[]
+}
+
+model AnnualGlobalBonusPayout {
+  id            String @id @default(uuid())
+  annualBonusId String
+  partnerId     String
+  amount        Int
+
+  createdAt DateTime @default(now())
+
+  annualBonus AnnualGlobalBonus @relation(fields: [annualBonusId], references: [id], onDelete: Cascade)
+  partner     Partner           @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([annualBonusId])
+  @@index([partnerId])
+}
+
+model CustomerCashbackWallet {
+  id         String @id @default(uuid())
+  customerId String @unique
+  balance    Int    @default(0) // в рублях, НЕ выводится
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer     Customer                     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions CustomerCashbackTransaction[]
+}
+
+model CustomerCashbackTransaction {
+  id       String @id @default(uuid())
+  walletId String
+  amount   Int // + начисление, - списание
+  type     String // CASHBACK_EARN / CASHBACK_SPEND
+  note     String?
+
+  createdAt DateTime @default(now())
+
+  wallet CustomerCashbackWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([type])
+}
+
+model MarketingConfig {
+  id                 String @id @default(uuid())
+  dvToRubRate        Int    @default(30)
+  partnerEntryDv     Int    @default(200)
+  partnerActiveDv    Int    @default(100)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CashbackTier {
+  id          String @id @default(uuid())
+  minRub      Int
+  maxRub      Int?
+  percent     Int
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([minRub])
+}
+
+model InfluenceTier {
+  id         String @id @default(uuid())
+  level      Int
+  percent    Int
+  minSelfDv  Int
+  isActive   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([level])
+  @@index([minSelfDv])
+}
+
+model BinaryBonusTier {
+  id         String @id @default(uuid())
+  minWeekDv  Int
+  percent    Int
+  isActive   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([minWeekDv])
+}
+
+model RankRequirement {
+  id             String @id @default(uuid())
+  code           String @unique
+  name           String
+  minMinorLegDv  Int
+  minSelfDv      Int
+  depthLevels    Int
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GlobalBonusConfig {
+  id        String @id @default(uuid())
+  percent   Int
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RepresentativeBonusConfig {
+  id                 String @id @default(uuid())
+  percent            Int
+  minRankCode        String
+  requiresOffice     Boolean @default(true)
+  isActive           Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CustomerCashbackConfig {
+  id                  String @id @default(uuid())
+  productPercent      Int
+  referralPercent     Int
+  maxSpendPercent     Int
+  isActive            Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -65,7 +65,23 @@ switch ($section) {
 }
 
 include 'includes/dashboard-header.php';
+?>
+<section id="<?php echo htmlspecialchars($section); ?>" class="dash__section is-active" data-section="<?php echo htmlspecialchars($section); ?>">
+    <header class="dash__header">
+        <div class="dash__logo">
+            <img class="dash__logoImg" src="<?php echo $assetsImg; ?>/image0_1_37.png" alt="Logo" />
+        </div>
+        <div class="dash__titleWrap">
+            <h1 class="dash__title"><?php echo htmlspecialchars($pageTitle); ?></h1>
+            <div class="dash__crumbs">
+                <span class="dash__crumb">Главная</span>
+                <span class="dash__crumbSep">/</span>
+                <span class="dash__crumbActive"><?php echo htmlspecialchars($pageTitle); ?></span>
+            </div>
+        </div>
+    </header>
 
+<?php
 // Подключаем контент в зависимости от секции
 switch ($section) {
     case 'shop':
@@ -113,7 +129,9 @@ switch ($section) {
     default:
         include 'dashboard/shop.php';
 }
-
+?>
+</section>
+<?php
 include 'includes/dashboard-footer.php';
 ?>
 

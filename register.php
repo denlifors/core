@@ -1,11 +1,15 @@
 <?php
 require_once 'config/config.php';
+require_once 'includes/mail.php';
 
 if (isLoggedIn()) {
     redirect('index.php');
 }
 
 $error = '';
+$success = '';
+$ref = sanitize($_GET['ref'] ?? $_POST['consultant_id'] ?? '');
+$isPartnerFlow = !empty($ref);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = sanitize($_POST['email'] ?? '');
@@ -61,45 +65,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->fetch()) {
             $error = 'Пользователь с таким email уже существует';
         } else {
-            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-            
-            // Подготовка данных для вставки
-            $insertData = [
-                ':email' => $email,
-                ':password' => $hashedPassword,
-                ':first_name' => $firstName,
-                ':last_name' => $lastName,
-                ':phone' => $phone,
-                ':role' => 'user'
-            ];
-            
-            $sql = "INSERT INTO users (email, password, first_name, last_name, phone, role";
-            $values = "VALUES (:email, :password, :first_name, :last_name, :phone, :role";
-            
-            if ($birthDate) {
-                $sql .= ", birth_date";
-                $values .= ", :birth_date";
-                $insertData[':birth_date'] = $birthDate;
+            if ($isPartnerFlow) {
+                if (!$ref) {
+                    $error = 'Регистрация партнёра возможна только по реферальной ссылке';
+                } else {
+                    try {
+                        $db->query("SELECT id FROM partner_registrations LIMIT 1");
+                    } catch (PDOException $e) {
+                        $error = 'Таблица partner_registrations не найдена. Запустите update-db-core.php';
+                    }
+                }
+
+                if (!$error) {
+                    $stmt = $db->prepare("SELECT id FROM partner_registrations WHERE email = :email AND status = 'pending' LIMIT 1");
+                    $stmt->execute([':email' => $email]);
+                    if ($stmt->fetch()) {
+                        $error = 'Заявка уже отправлена. Проверьте почту для подтверждения.';
+                    } else {
+                        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                        $token = bin2hex(random_bytes(16));
+                        $fullName = trim($firstName . ' ' . $lastName);
+
+                        $stmt = $db->prepare(
+                            "INSERT INTO partner_registrations
+                             (name, first_name, last_name, email, phone, password_plain, password_hash, token, status, sponsor_partner_id)
+                             VALUES (:name, :first_name, :last_name, :email, :phone, :password_plain, :password_hash, :token, 'pending', :sponsor_partner_id)"
+                        );
+                        $stmt->execute([
+                            ':name' => $fullName ?: $firstName,
+                            ':first_name' => $firstName,
+                            ':last_name' => $lastName,
+                            ':email' => $email,
+                            ':phone' => $phone,
+                            ':password_plain' => $password,
+                            ':password_hash' => $hashedPassword,
+                            ':token' => $token,
+                            ':sponsor_partner_id' => $ref
+                        ]);
+
+                        $registrationNumber = (int)$db->lastInsertId();
+                        $confirmLink = BASE_URL . 'partner-confirm.php?token=' . $token;
+                        $mailSent = sendPartnerConfirmEmail($email, $fullName ?: $firstName, $confirmLink, $registrationNumber, $password);
+
+                        if ($mailSent) {
+                            $success = 'Письмо подтверждения отправлено на ваш email. Перейдите по ссылке для завершения регистрации.';
+                        } else {
+                            $success = 'Заявка создана. Письмо не отправлено (локальная среда). Проверьте файл logs/mail.log.';
+                        }
+                    }
+                }
+            } else {
+                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                // Обычная регистрация клиента
+                $insertData = [
+                    ':email' => $email,
+                    ':password' => $hashedPassword,
+                    ':first_name' => $firstName,
+                    ':last_name' => $lastName,
+                    ':phone' => $phone,
+                    ':role' => 'user'
+                ];
+
+                $sql = "INSERT INTO users (email, password, first_name, last_name, phone, role";
+                $values = "VALUES (:email, :password, :first_name, :last_name, :phone, :role";
+
+                if ($birthDate) {
+                    $sql .= ", birth_date";
+                    $values .= ", :birth_date";
+                    $insertData[':birth_date'] = $birthDate;
+                }
+
+                if ($consultantId && is_numeric($consultantId)) {
+                    $sql .= ", consultant_id";
+                    $values .= ", :consultant_id";
+                    $insertData[':consultant_id'] = (int)$consultantId;
+                }
+
+                $sql .= ") " . $values . ")";
+
+                $stmt = $db->prepare($sql);
+                $stmt->execute($insertData);
+
+                // Auto login
+                $userId = $db->lastInsertId();
+                $_SESSION['user_id'] = $userId;
+                $_SESSION['user_email'] = $email;
+                $_SESSION['user_role'] = 'user';
+
+                redirect('index.php');
             }
-            
-            if ($consultantId && is_numeric($consultantId)) {
-                $sql .= ", consultant_id";
-                $values .= ", :consultant_id";
-                $insertData[':consultant_id'] = (int)$consultantId;
-            }
-            
-            $sql .= ") " . $values . ")";
-            
-            $stmt = $db->prepare($sql);
-            $stmt->execute($insertData);
-            
-            // Auto login
-            $userId = $db->lastInsertId();
-            $_SESSION['user_id'] = $userId;
-            $_SESSION['user_email'] = $email;
-            $_SESSION['user_role'] = 'user';
-            
-            redirect('index.php');
         }
     }
 }
@@ -139,15 +193,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             
             <h1 class="login-title">Регистрация</h1>
-            
-            <div class="register-badge">Клиент</div>
-            
-            <div class="register-promo-banner">
-                <p>Стань клиентом <strong>ДенЛиФорс</strong><br>и получай кэшбек 15% с каждой покупки!</p>
-            </div>
+
+            <?php if ($isPartnerFlow): ?>
+                <div class="register-badge">Партнёр</div>
+                <div class="register-promo-banner">
+                    <p>Регистрация партнёра по реферальной ссылке.<br>После подтверждения вы попадёте в кабинет и сможете сделать первую покупку.</p>
+                </div>
+            <?php else: ?>
+                <div class="register-badge">Клиент</div>
+                <div class="register-promo-banner">
+                    <p>Стань клиентом <strong>ДенЛиФорс</strong><br>и получай кэшбек 15% с каждой покупки!</p>
+                </div>
+            <?php endif; ?>
             
             <?php if ($error): ?>
                 <div class="login-error"><?php echo $error; ?></div>
+            <?php endif; ?>
+            <?php if ($success): ?>
+                <div class="login-success"><?php echo $success; ?></div>
             <?php endif; ?>
             
             <form method="POST" class="register-form" id="registerForm">
@@ -258,12 +321,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <circle cx="12" cy="7" r="4"/>
                             </svg>
                         </div>
-                        <input 
+                        <input
                             type="text" 
                             name="consultant_id" 
                             class="register-input" 
                             placeholder="Введите регистрационный номер"
-                            value="<?php echo htmlspecialchars($_POST['consultant_id'] ?? ''); ?>"
+                            value="<?php echo htmlspecialchars($ref ?: ($_POST['consultant_id'] ?? '')); ?>"
+                            <?php if ($isPartnerFlow): ?>readonly required<?php endif; ?>
                         >
                     </div>
                 </div>

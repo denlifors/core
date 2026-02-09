@@ -181,6 +181,17 @@
     border: 1px solid #fcc;
 }
 
+.login-success {
+    background: #e9fbe9;
+    color: #2a7a2a;
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    border: 1px solid #c7f2c7;
+}
+
 .login-form {
     margin-bottom: 2rem;
     flex: 1;
