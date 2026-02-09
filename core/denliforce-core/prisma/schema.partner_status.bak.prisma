@@ -1,0 +1,255 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  PARTNER
+  CUSTOMER
+}
+
+enum BinarySide {
+  LEFT
+  RIGHT
+}
+enum PartnerStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id       String   @id @default(uuid())
+  email    String   @unique
+  password String
+  role     UserRole @default(CUSTOMER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partner  Partner?
+  customer Customer?
+}
+
+model Partner {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  sponsorId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sponsor   Partner?  @relation("Sponsor", fields: [sponsorId], references: [id])
+  downlines Partner[] @relation("Sponsor")
+
+  customers      Customer[]
+  binary         BinaryNode?
+  wallets        Wallet[]
+  volumeLedgers  VolumeLedger[]
+  bonusLedgers   BonusLedger[]
+  rankHistory    RankHistory[]
+  cashbackWallet PartnerCashbackWallet?
+  orders         Order[]
+  weeklyStats    WeeklyBinaryStats[]
+    status        PartnerStatus @default(PENDING)
+  activatedAt   DateTime?
+  deactivatedAt DateTime?
+
+  @@index([sponsorId])
+}
+
+model Customer {
+  id        String @id @default(uuid())
+  userId    String @unique
+  partnerId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partner Partner @relation(fields: [partnerId], references: [id])
+
+  orders Order[]
+
+  @@index([partnerId])
+}
+
+model BinaryNode {
+  id        String     @id @default(uuid())
+  partnerId String     @unique
+  parentId  String?
+  side      BinarySide
+
+  leftVolume  Int @default(0)
+  rightVolume Int @default(0)
+
+  partner  Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  parent   BinaryNode?  @relation("BinaryTree", fields: [parentId], references: [id])
+  children BinaryNode[] @relation("BinaryTree")
+
+  @@index([parentId])
+  @@index([side])
+}
+
+model Order {
+  id             String  @id @default(uuid())
+  customerId     String?
+  buyerPartnerId String?
+
+  totalPrice Int
+  dv         Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer     Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  buyerPartner Partner?    @relation(fields: [buyerPartnerId], references: [id], onDelete: SetNull)
+  items        OrderItem[]
+
+  @@index([customerId])
+  @@index([buyerPartnerId])
+}
+
+model OrderItem {
+  id      String @id @default(uuid())
+  orderId String
+
+  product String
+  price   Int
+  dv      Int
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model VolumeLedger {
+  id        String  @id @default(uuid())
+  partnerId String
+  orderId   String?
+  dv        Int
+  note      String?
+
+  createdAt DateTime @default(now())
+
+  partner Partner @relation(fields: [partnerId], references: [id])
+
+  @@index([partnerId])
+  @@index([orderId])
+}
+
+model BonusLedger {
+  id        String  @id @default(uuid())
+  partnerId String
+  type      String
+  amount    Int
+  note      String?
+
+  createdAt DateTime @default(now())
+
+  partner Partner @relation(fields: [partnerId], references: [id])
+
+  @@index([partnerId])
+  @@index([type])
+}
+
+model Rank {
+  id             String        @id @default(uuid())
+  code           String        @unique
+  name           String
+  requiredVolume Int           @default(0)
+  history        RankHistory[]
+}
+
+model RankHistory {
+  id        String @id @default(uuid())
+  partnerId String
+  rankId    String
+
+  createdAt DateTime @default(now())
+
+  partner Partner @relation(fields: [partnerId], references: [id])
+  rank    Rank    @relation(fields: [rankId], references: [id])
+
+  @@index([partnerId])
+  @@index([rankId])
+}
+
+model Wallet {
+  id        String @id @default(uuid())
+  partnerId String
+  balance   Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partner      Partner             @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@index([partnerId])
+}
+
+model WalletTransaction {
+  id       String  @id @default(uuid())
+  walletId String
+  amount   Int
+  type     String
+  note     String?
+
+  createdAt DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([type])
+}
+
+model PartnerCashbackWallet {
+  id        String @id @default(uuid())
+  partnerId String @unique
+  balance   Int    @default(0) // в рублях, НЕ выводится
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partner      Partner               @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  transactions CashbackTransaction[]
+}
+
+model CashbackTransaction {
+  id       String  @id @default(uuid())
+  walletId String
+  amount   Int // + начисление, - списание
+  type     String // CASHBACK_EARN / CASHBACK_SPEND
+  note     String?
+
+  createdAt DateTime @default(now())
+
+  wallet PartnerCashbackWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([type])
+}
+
+model WeeklyBinaryStats {
+  id        String   @id @default(uuid())
+  partnerId String
+  weekStart DateTime // понедельник 00:00 UTC или локальный — закрепим позже
+
+  leftDv  Int @default(0)
+  rightDv Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, weekStart])
+  @@index([weekStart])
+}

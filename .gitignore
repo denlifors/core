@@ -1,0 +1,47 @@
+﻿# OS / temp
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Env / secrets
+.env
+.env.*
+*.key
+
+# Uploads / user files ( пушим)
+uploads/
+uploads/**
+
+# Logs / cache / temp
+*.log
+cache/
+tmp/
+temp/
+
+# Composer / dependencies (если используешь Composer)
+vendor/
+
+# Node (если вдруг есть фронт)
+node_modules/
+
+# DB dumps / backups ( пушим)
+*.sql
+*.dump
+*.bak
+*_db/
+db_dumps/
+database/*.sql
+
+# Archives
+*.zip
+*.rar
+*.7z
+
+# Large binaries (do not commit)
+*.exe
+*.msi
+core/denliforce-core/public/img/icons/*.csv
+core/denliforce-core/public/img/icons/*.exe
