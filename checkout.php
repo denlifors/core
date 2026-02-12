@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Create order
         $stmt = $db->prepare("INSERT INTO orders (user_id, order_number, total, first_name, last_name, email, phone, address, city, postal_code, payment_method, notes, status) 
-                              VALUES (:user_id, :order_number, :total, :first_name, :last_name, :email, :phone, :address, :city, :postal_code, :payment_method, :notes, 'pending')");
+                              VALUES (:user_id, :order_number, :total, :first_name, :last_name, :email, :phone, :address, :city, :postal_code, :payment_method, :notes, 'delivered')");
         $stmt->execute([
             ':user_id' => $_SESSION['user_id'],
             ':order_number' => $orderNumber,
@@ -89,8 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':quantity' => $item['quantity']
             ]);
             
-            // Update product stock and sales count
-            $db->prepare("UPDATE products SET stock = stock - :quantity, sales_count = sales_count + :quantity WHERE id = :id")
+            // Update product stock (без несуществующего sales_count)
+            $db->prepare("UPDATE products SET stock = GREATEST(COALESCE(stock,0) - :quantity, 0) WHERE id = :id")
                ->execute([':quantity' => $item['quantity'], ':id' => $item['product_id']]);
         }
         

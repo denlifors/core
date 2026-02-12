@@ -1,7 +1,6 @@
 <?php
 $db = getDBConnection();
 
-// Берем 3 товара для текущего макета магазина
 $productsStmt = $db->query("
     SELECT id, name, price, image, status
     FROM products
@@ -12,72 +11,72 @@ $productsStmt = $db->query("
 $products = $productsStmt ? $productsStmt->fetchAll() : [];
 
 $cartCount = 0;
-if (isLoggedIn()) {
-    $cartStmt = $db->prepare("SELECT COALESCE(SUM(quantity), 0) FROM cart WHERE user_id = :uid");
-    $cartStmt->execute([':uid' => $_SESSION['user_id']]);
-    $cartCount = (int)$cartStmt->fetchColumn();
-} else {
-    $cartStmt = $db->prepare("SELECT COALESCE(SUM(quantity), 0) FROM cart WHERE session_id = :sid");
-    $cartStmt->execute([':sid' => session_id()]);
-    $cartCount = (int)$cartStmt->fetchColumn();
-}
+$cartStmt = $db->prepare("SELECT COALESCE(SUM(quantity), 0) FROM cart WHERE user_id = :uid");
+$cartStmt->execute([':uid' => $_SESSION['user_id']]);
+$cartCount = (int)$cartStmt->fetchColumn();
+$clientCashbackRub = 0;
 
-// Фолбэк-картинки, если у товара в БД нет своего image
 $fallbackImages = [
     BASE_URL . 'assets/images/products/image1.png',
     BASE_URL . 'assets/images/products/image2.png',
     BASE_URL . 'assets/images/products/image3.png',
 ];
 
-// Если из БД пришло меньше 3-х карточек, добиваем заглушками
 while (count($products) < 3) {
-    $idx = count($products);
     $products[] = [
         'id' => 0,
         'name' => 'Товар ДенЛиФорс',
         'price' => 3000,
         'image' => null,
-        'status' => $idx === 0 ? 'active' : 'out_of_stock',
+        'status' => 'out_of_stock',
     ];
 }
+
+$consultantRef = (string)($registrationId ?: ($userData['id'] ?? ''));
+$clientInviteLink = BASE_URL . 'register.php?consultant_id=' . urlencode($consultantRef);
 ?>
 
-<section class="shop__top">
-    <article class="shop__cashbackCard">
-        <div class="shop__cashbackTop"></div>
-        <img class="shop__cashbackVector" src="<?php echo $assetsImg; ?>/icons/vector.svg" alt="" />
-
-        <div class="shop__cashbackDv">DV</div>
-
-        <div class="shop__cashbackMetric">
-            <span class="shop__cashbackLabel">Кэшбэк:</span>
-            <span class="shop__cashbackValue">2 %</span>
+<section class="shopc__heroRow">
+    <article class="shopc__cashbackCard">
+        <div class="shopc__cashbackTop"></div>
+        <img class="shopc__cashbackVector" src="<?php echo $assetsImg; ?>/icons/vector.svg" alt="" />
+        <div class="shopc__cashbackCurrency">₽</div>
+        <div class="shopc__cashbackMetric">
+            <span class="shopc__cashbackLabel">Кэшбэк:</span>
+            <span class="shopc__cashbackValue"><?php echo number_format($clientCashbackRub, 0, '.', ' '); ?> ₽</span>
         </div>
-
-        <div class="shop__cashbackBottom">
-            <a class="shop__cashbackAction" href="#" onclick="return false;">
+        <div class="shopc__cashbackBottom">
+            <a class="shopc__cashbackAction" href="#" onclick="return false;">
                 <img src="<?php echo $assetsImg; ?>/icons/convert-card.svg" alt="" />
                 <span>Операции</span>
             </a>
         </div>
     </article>
 
-    <section class="shop__promo">
-        <div class="shop__promoText">
-            Достигните статуса “Генеральный директор” и участвуйте в “Жилищной программе”
+    <article class="shopc__leftCard">
+        <div class="shopc__leftText">
+            Приглашайте клиентов по вашей ссылке и получайте 10% с каждой покупки.
+            Накапливайте и оплачивайте до 50% с покупки ваших товаров.
         </div>
-        <div class="shop__promoRight">
-            <img class="shop__promoImg" src="<?php echo $assetsImg; ?>/dom.png" alt="" />
+        <div class="shopc__linkCard">
+            <div class="shopc__linkLabel">Клиентская ссылка:</div>
+            <div class="shopc__linkValue" id="shopc-client-link"><?php echo htmlspecialchars($clientInviteLink); ?></div>
+            <div class="shopc__linkActions">
+                <button type="button" class="shopc__linkBtn" onclick="copyClientShopLink()">⧉</button>
+                <button type="button" class="shopc__linkBtn" onclick="window.open('https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(document.getElementById('shopc-client-link').textContent),'_blank')">⌗</button>
+                <button type="button" class="shopc__linkBtn" onclick="navigator.share ? navigator.share({url: document.getElementById('shopc-client-link').textContent}) : copyClientShopLink()">↗</button>
+            </div>
         </div>
-        <img class="shop__promoObj shop__promoObj--a" src="<?php echo $assetsImg; ?>/derevannyi-brelok-na-belom-Photoroom.png" alt="" />
-        <img class="shop__promoObj shop__promoObj--b" src="<?php echo $assetsImg; ?>/2669627_1751-Photoroom.png" alt="" />
-    </section>
+    </article>
+
+    <article class="shopc__activateCard">
+        <button type="button" class="shopc__activateBtn" onclick="window.location.href='dashboard.php?section=cart'">Стать партнёром</button>
+    </article>
 </section>
 
-<section class="shop__catalog">
-    <h2 class="shop__catalogTitle">Наша линейка продуктов</h2>
-
-    <div class="shop__catalogGrid">
+<section class="shopc__catalog">
+    <h2 class="shopc__title">Наша линейка продуктов</h2>
+    <div class="shop__catalogGrid shopc__grid">
         <?php foreach ($products as $idx => $product): ?>
             <?php
                 $productId = (int)($product['id'] ?? 0);
@@ -86,7 +85,6 @@ while (count($products) < 3) {
                 $price = (float)($product['price'] ?? 3000);
                 $status = (string)($product['status'] ?? 'active');
                 $isInStock = ($status === 'active');
-
                 $productImage = $fallbackImages[$idx] ?? $fallbackImages[0];
                 if (!empty($product['image'])) {
                     $candidate = (string)$product['image'];
@@ -99,10 +97,7 @@ while (count($products) < 3) {
                         }
                     }
                 }
-
-                $productUrl = $productId > 0
-                    ? ('dashboard.php?section=product&id=' . $productId)
-                    : '#';
+                $productUrl = $productId > 0 ? ('dashboard.php?section=product&id=' . $productId) : '#';
             ?>
             <article class="shop__productCard">
                 <a class="shop__productImageWrap" href="<?php echo htmlspecialchars($productUrl); ?>">
@@ -117,24 +112,17 @@ while (count($products) < 3) {
                 <div class="shop__productDots">
                     <span class="is-active"></span><span></span><span></span><span></span><span></span>
                 </div>
-
                 <div class="shop__productPrice"><?php echo number_format($price, 0, ',', ' '); ?> ₽ (200DV)</div>
-
                 <div class="shop__productMeta">
-                    <span>ДенЛиФорс</span>
-                    <span class="shop__metaCheck">✓</span>
-                    <span>Оригинал</span>
+                    <span>ДенЛиФорс</span><span class="shop__metaCheck">✓</span><span>Оригинал</span>
                 </div>
-
                 <a class="shop__productName" href="<?php echo htmlspecialchars($productUrl); ?>">
                     <?php echo htmlspecialchars(mb_strimwidth($name, 0, 46, '...')); ?>
                 </a>
-
                 <div class="shop__productStock">
                     <span><?php echo $isInStock ? 'В наличии' : 'Нет в наличии'; ?></span>
                     <span class="shop__stockDot <?php echo $isInStock ? 'is-in' : 'is-out'; ?>">✓</span>
                 </div>
-
                 <button class="shop__cartBtn" type="button" <?php echo $productId > 0 ? ('onclick="addToCart(' . $productId . ')"') : 'disabled'; ?>>
                     🛒 В корзину
                 </button>
@@ -152,39 +140,37 @@ while (count($products) < 3) {
 
 <script>
 function refreshFloatingCartCount() {
-    fetch('<?php echo BASE_URL; ?>api/cart-count.php')
-        .then((r) => r.json())
-        .then((data) => {
-            const badge = document.getElementById('shop-floating-cart-badge');
-            if (!badge) return;
-            const count = (data && data.success) ? Number(data.count || 0) : 0;
-            if (count > 0) {
-                badge.textContent = String(count);
-                badge.classList.remove('is-hidden');
-            } else {
-                badge.textContent = '';
-                badge.classList.add('is-hidden');
-            }
-        })
-        .catch(() => {});
+  fetch('<?php echo BASE_URL; ?>api/cart-count.php')
+    .then((r) => r.json())
+    .then((data) => {
+      const badge = document.getElementById('shop-floating-cart-badge');
+      if (!badge) return;
+      const count = (data && data.success) ? Number(data.count || 0) : 0;
+      badge.textContent = count > 0 ? String(count) : '';
+      badge.classList.toggle('is-hidden', count < 1);
+    })
+    .catch(() => {});
 }
-
 function addToCart(productId) {
-    fetch('<?php echo BASE_URL; ?>api/cart-add.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: productId, quantity: 1 })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (!data || !data.success) {
-            alert('Не удалось добавить товар в корзину');
-            return;
-        }
-        refreshFloatingCartCount();
-    })
-    .catch(() => alert('Ошибка добавления в корзину'));
+  fetch('<?php echo BASE_URL; ?>api/cart-add.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: productId, quantity: 1 })
+  })
+  .then((r) => r.json())
+  .then((data) => {
+    if (!data || !data.success) {
+      alert((data && data.error) ? data.error : 'Не удалось добавить товар в корзину');
+      return;
+    }
+    refreshFloatingCartCount();
+  })
+  .catch(() => alert('Ошибка добавления в корзину'));
 }
-
+function copyClientShopLink() {
+  const text = document.getElementById('shopc-client-link')?.textContent || '';
+  if (!text) return;
+  navigator.clipboard.writeText(text).catch(() => {});
+}
 document.addEventListener('DOMContentLoaded', refreshFloatingCartCount);
 </script>

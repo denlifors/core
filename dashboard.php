@@ -1,5 +1,7 @@
 <?php
 require_once 'config/config.php';
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 if (!isLoggedIn()) {
     redirect('login.php');
@@ -7,6 +9,7 @@ if (!isLoggedIn()) {
 
 $section = $_GET['section'] ?? 'shop';
 $pageTitle = 'Кабинет';
+$breadcrumbTitle = null;
 
 // Получаем информацию о пользователе для определения статуса
 $db = getDBConnection();
@@ -28,7 +31,8 @@ switch ($section) {
         $pageTitle = 'Магазин';
         break;
     case 'orders':
-        $pageTitle = 'Заказы';
+        $pageTitle = 'Мои заказы';
+        $breadcrumbTitle = 'Заказы';
         break;
     case 'team':
         $pageTitle = 'Команда';
@@ -50,9 +54,11 @@ switch ($section) {
         break;
     case 'cart':
         $pageTitle = 'Корзина';
+        $breadcrumbTitle = 'Магазин';
         break;
     case 'product':
         $pageTitle = 'Описание';
+        $breadcrumbTitle = 'Магазин';
         break;
     case 'checkout':
         $pageTitle = 'Оформление заказа';
@@ -62,6 +68,10 @@ switch ($section) {
         break;
     default:
         $pageTitle = 'Кабинет';
+}
+
+if ($breadcrumbTitle === null) {
+    $breadcrumbTitle = $pageTitle;
 }
 
 include 'includes/dashboard-header.php';
@@ -76,7 +86,7 @@ include 'includes/dashboard-header.php';
             <div class="dash__crumbs">
                 <span class="dash__crumb">Главная</span>
                 <span class="dash__crumbSep">/</span>
-                <span class="dash__crumbActive"><?php echo htmlspecialchars($pageTitle); ?></span>
+                <span class="dash__crumbActive"><?php echo htmlspecialchars($breadcrumbTitle); ?></span>
             </div>
         </div>
     </header>
@@ -85,7 +95,11 @@ include 'includes/dashboard-header.php';
 // Подключаем контент в зависимости от секции
 switch ($section) {
     case 'shop':
-        include 'dashboard/shop.php';
+        if (isset($isPartnerUser) && !$isPartnerUser) {
+            include 'dashboard/shop-client.php';
+        } else {
+            include 'dashboard/shop.php';
+        }
         break;
     case 'cabinet':
         include 'dashboard/cabinet.php';

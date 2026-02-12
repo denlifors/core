@@ -1,37 +1,134 @@
-<div class="history">
-    <div class="history__filterCard" style="background: rgba(255,255,255,0.08) !important; backdrop-filter: blur(20px);">
-        <div class="history__filterRow history__filterRow--top">
-            <div class="history__filterLabel">Дата с:</div>
-            <div class="history__filterInput">__.__.__</div>
+<?php
+$bonusTypeMap = [
+    'all' => ['label' => 'Все', 'core' => 'all'],
+    '3' => ['label' => 'Бонус "3 круга влияния"', 'core' => 'INFLUENCE'],
+    'balance' => ['label' => 'Бонус "Баланс"', 'core' => 'BALANCE_WEEKLY'],
+    'growth' => ['label' => 'Бонус "Роста"', 'core' => 'GROWTH_BONUS'],
+    'global' => ['label' => 'Бонус "Глобальный"', 'core' => 'GLOBAL_BONUS'],
+    'rep' => ['label' => 'Бонус "Представительский"', 'core' => 'REPRESENTATIVE_BONUS'],
+    'cashback' => ['label' => 'Партнёрский кэшбэк', 'core' => 'PARTNER_CASHBACK'],
+];
 
-            <div class="history__filterLabel">Дата по:</div>
-            <div class="history__filterInput">__.__.__</div>
+$fromRaw = trim((string)($_GET['from'] ?? ''));
+$toRaw = trim((string)($_GET['to'] ?? ''));
+$searchRaw = trim((string)($_GET['q'] ?? ''));
+$selectedType = (string)($_GET['bonus_type'] ?? 'all');
+$selectedType = isset($bonusTypeMap[$selectedType]) ? $selectedType : 'all';
+$page = max(1, (int)($_GET['hpage'] ?? 1));
+$perPage = 50;
+
+$parseRuDate = static function (string $value): ?string {
+    if ($value === '') return null;
+    $dt = DateTime::createFromFormat('d.m.Y', $value);
+    if (!$dt || $dt->format('d.m.Y') !== $value) return null;
+    return $dt->format('Y-m-d');
+};
+
+$fromDateIso = $parseRuDate($fromRaw);
+$toDateIso = $parseRuDate($toRaw);
+
+$historyItems = [];
+$totalRows = 0;
+$currentRankLabel = $currentUserRankLabel ?? 'Партнёр';
+
+if (!empty($userData['core_partner_id'])) {
+    $qs = [
+        'partnerId' => (string)$userData['core_partner_id'],
+        'page' => $page,
+        'perPage' => $perPage,
+    ];
+    $coreType = $bonusTypeMap[$selectedType]['core'] ?? 'all';
+    if ($coreType !== 'all' && $coreType !== 'INFLUENCE') {
+        $qs['type'] = $coreType;
+    }
+    if ($fromDateIso) $qs['from'] = $fromDateIso;
+    if ($toDateIso) $qs['to'] = $toDateIso;
+
+    $err = null;
+    $historyRes = coreGetJson('/partner-bonus-history?' . http_build_query($qs), $err);
+    if ($historyRes && ($historyRes['status'] ?? 500) < 400) {
+        $items = $historyRes['data']['items'] ?? [];
+
+        if ($coreType === 'INFLUENCE') {
+            $items = array_values(array_filter($items, static function ($row) {
+                return strpos((string)($row['type'] ?? ''), 'INFLUENCE_') === 0;
+            }));
+        }
+
+        if ($searchRaw !== '') {
+            $needle = mb_strtolower($searchRaw, 'UTF-8');
+            $items = array_values(array_filter($items, static function ($row) use ($needle) {
+                $txt = mb_strtolower((string)($row['note'] ?? ''), 'UTF-8') . ' ' . mb_strtolower((string)($row['type'] ?? ''), 'UTF-8');
+                return mb_strpos($txt, $needle) !== false;
+            }));
+        }
+
+        $historyItems = $items;
+        $totalRows = (int)($historyRes['data']['total'] ?? count($historyItems));
+    }
+}
+
+$eventText = static function (array $row): string {
+    $type = (string)($row['type'] ?? '');
+    $note = trim((string)($row['note'] ?? ''));
+    if (strpos($type, 'INFLUENCE_L') === 0) {
+        $lvl = (int)str_replace('INFLUENCE_L', '', $type);
+        return 'Получен бонус "3 круга влияния" с ' . max(1, $lvl) . ' круга';
+    }
+    if ($type === 'BALANCE_WEEKLY') return 'Начислен бонус "Баланс"';
+    if ($type === 'GROWTH_BONUS') return 'Начислен бонус "Роста"';
+    if ($type === 'GLOBAL_BONUS') return 'Начислен "Глобальный" бонус';
+    if ($type === 'REPRESENTATIVE_BONUS') return 'Начислен "Представительский" бонус';
+    if ($type === 'PARTNER_CASHBACK') return 'Начислен партнёрский кэшбэк';
+    return $note !== '' ? $note : $type;
+};
+
+$rowTypeCategory = static function (array $row): string {
+    $type = (string)($row['type'] ?? '');
+    if (strpos($type, 'INFLUENCE_L') === 0) return '3';
+    if ($type === 'BALANCE_WEEKLY') return 'balance';
+    if ($type === 'GROWTH_BONUS') return 'growth';
+    if ($type === 'GLOBAL_BONUS') return 'global';
+    if ($type === 'REPRESENTATIVE_BONUS') return 'rep';
+    if ($type === 'PARTNER_CASHBACK') return 'cashback';
+    return 'all';
+};
+?>
+
+<div class="history">
+    <form class="history__filterCard" method="get" action="dashboard.php" style="background: rgba(255,255,255,0.08) !important; backdrop-filter: blur(20px);">
+        <input type="hidden" name="section" value="history" />
+        <input type="hidden" name="bonus_type" id="history-bonus-type" value="<?php echo htmlspecialchars($selectedType); ?>" />
+
+        <div class="history__filterRow history__filterRow--top">
+            <label class="history__filterLabel" for="history-from">Дата с:</label>
+            <input class="history__filterInput" id="history-from" name="from" type="text" value="<?php echo htmlspecialchars($fromRaw); ?>" placeholder="__.__.____" />
+
+            <label class="history__filterLabel" for="history-to">Дата по:</label>
+            <input class="history__filterInput" id="history-to" name="to" type="text" value="<?php echo htmlspecialchars($toRaw); ?>" placeholder="__.__.____" />
 
             <div class="history__filterSelectWrap">
                 <div class="history__filterSelect" id="history-bonus-select">
-                    <span id="history-bonus-selected">Тип бонуса</span>
+                    <span id="history-bonus-selected"><?php echo htmlspecialchars($bonusTypeMap[$selectedType]['label']); ?></span>
                     <span class="history__chevron">▼</span>
                 </div>
                 <div class="history__bonusDropdown" id="history-bonus-dropdown">
                     <div class="history__bonusList">
-                        <div class="history__bonusItem" data-type="all">Все</div>
-                        <div class="history__bonusItem" data-type="3">Бонус “3 круга влияния”</div>
-                        <div class="history__bonusItem" data-type="balance">Бонус “Баланс”</div>
-                        <div class="history__bonusItem" data-type="growth">Бонус “Роста”</div>
-                        <div class="history__bonusItem" data-type="global">Бонус “Глобальный”</div>
-                        <div class="history__bonusItem" data-type="rep">Бонус “Представительский”</div>
+                        <?php foreach ($bonusTypeMap as $key => $cfg): ?>
+                            <div class="history__bonusItem" data-type="<?php echo htmlspecialchars($key); ?>"><?php echo htmlspecialchars($cfg['label']); ?></div>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>
 
-            <button class="history__filterBtn" type="button">Показать</button>
+            <button class="history__filterBtn" type="submit">Показать</button>
         </div>
 
         <div class="history__filterRow history__filterRow--search">
             <div class="history__searchIcon">🔍</div>
-            <div class="history__searchPlaceholder">Поиск по пользователю / бонусу</div>
+            <input class="history__searchInput" type="text" name="q" value="<?php echo htmlspecialchars($searchRaw); ?>" placeholder="Поиск по бонусу / примечанию" />
         </div>
-    </div>
+    </form>
 
     <div class="history__listCard" style="background: rgba(255,255,255,0.08) !important; backdrop-filter: blur(20px);">
         <div class="history__listHeader">
@@ -42,90 +139,89 @@
         </div>
 
         <div class="history__list">
-            <div class="history__row" data-type="3">
-                <div class="history__col history__col--event">Получен бонус "3 круга влияния" с 1 круга от Ивана Иванова</div>
-                <div class="history__col history__col--status history__status history__status--partner">Партнер</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
-            <div class="history__row" data-type="balance">
-                <div class="history__col history__col--event">Бонус "Баланс" 5%</div>
-                <div class="history__col history__col--status history__status history__status--bronze">Бронзовый лидер</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
-            <div class="history__row" data-type="growth">
-                <div class="history__col history__col--event">Присвоен статус Серебряный лидер</div>
-                <div class="history__col history__col--status history__status history__status--silver">Серебряный лидер</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
-            <div class="history__row" data-type="growth">
-                <div class="history__col history__col--event">Бонус "Роста" с 1 уровня от Пети Петрова</div>
-                <div class="history__col history__col--status history__status history__status--gold">Золотой лидер</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
-            <div class="history__row" data-type="global">
-                <div class="history__col history__col--event">Глобальный бонус 1% от всего товарооборота компании</div>
-                <div class="history__col history__col--status history__status history__status--platinum">Платиновый лидер</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
-            <div class="history__row" data-type="rep">
-                <div class="history__col history__col--event">Представительский бонус 1% от всего товарооборота команды</div>
-                <div class="history__col history__col--status history__status history__status--diamond">Бриллиантовый лидер</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
-            <div class="history__row" data-type="3">
-                <div class="history__col history__col--event">Получен бонус "3 круга влияния" с 1 круга от Ивана Иванова</div>
-                <div class="history__col history__col--status history__status history__status--director">Директор</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
-            <div class="history__row" data-type="balance">
-                <div class="history__col history__col--event">Бонус "Баланс" 5%</div>
-                <div class="history__col history__col--status history__status history__status--executive">Исполнительный директор</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
-            <div class="history__row" data-type="growth">
-                <div class="history__col history__col--event">Присвоен статус Коммерческий директор</div>
-                <div class="history__col history__col--status history__status history__status--commercial">Коммерческий директор</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
-            <div class="history__row" data-type="growth">
-                <div class="history__col history__col--event">Присвоен статус Генеральный директор</div>
-                <div class="history__col history__col--status history__status history__status--general">Генеральный директор</div>
-                <div class="history__col history__col--amount">150.00 DV</div>
-                <div class="history__col history__col--date">12.01.2026</div>
-            </div>
+            <?php if (empty($historyItems)): ?>
+                <div class="history__row">
+                    <div class="history__col history__col--event">Пока нет начислений бонусов</div>
+                    <div class="history__col history__col--status history__status history__status--partner"><?php echo htmlspecialchars($currentRankLabel); ?></div>
+                    <div class="history__col history__col--amount">0.00 DV</div>
+                    <div class="history__col history__col--date">—</div>
+                </div>
+            <?php else: ?>
+                <?php foreach ($historyItems as $row): ?>
+                    <?php
+                        $cat = $rowTypeCategory($row);
+                        $amountDv = (float)($row['amountDv'] ?? 0);
+                        $createdAt = !empty($row['createdAt']) ? date('d.m.Y', strtotime((string)$row['createdAt'])) : '—';
+                    ?>
+                    <div class="history__row" data-type="<?php echo htmlspecialchars($cat); ?>">
+                        <div class="history__col history__col--event"><?php echo htmlspecialchars($eventText($row)); ?></div>
+                        <div class="history__col history__col--status history__status history__status--partner"><?php echo htmlspecialchars($currentRankLabel); ?></div>
+                        <div class="history__col history__col--amount"><?php echo number_format($amountDv, 2, '.', ' '); ?> DV</div>
+                        <div class="history__col history__col--date"><?php echo htmlspecialchars($createdAt); ?></div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
 
         <div class="history__footer">
-            <div class="history__range">Записи с 1 по 10 из 192</div>
+            <?php
+                $fromRecord = $totalRows > 0 ? (($page - 1) * $perPage + 1) : 0;
+                $toRecord = min($page * $perPage, max($totalRows, count($historyItems)));
+                $totalPages = max(1, (int)ceil(max($totalRows, count($historyItems)) / $perPage));
+                $prevPage = max(1, $page - 1);
+                $nextPage = min($totalPages, $page + 1);
+                $baseQ = [
+                    'section' => 'history',
+                    'from' => $fromRaw,
+                    'to' => $toRaw,
+                    'q' => $searchRaw,
+                    'bonus_type' => $selectedType,
+                ];
+            ?>
+            <div class="history__range">Записи с <?php echo $fromRecord; ?> по <?php echo $toRecord; ?> из <?php echo max($totalRows, count($historyItems)); ?></div>
             <div class="history__pager">
-                <button class="history__pageBtn" type="button">‹</button>
-                <span class="history__page">1</span>
-                <span class="history__page">2</span>
-                <span class="history__page">3</span>
-                <span class="history__page">…</span>
-                <span class="history__page">10</span>
-                <span class="history__page">192</span>
-                <button class="history__pageBtn" type="button">›</button>
+                <a class="history__pageBtn" href="dashboard.php?<?php echo http_build_query($baseQ + ['hpage' => $prevPage]); ?>">‹</a>
+                <span class="history__page"><?php echo $page; ?></span>
+                <a class="history__pageBtn" href="dashboard.php?<?php echo http_build_query($baseQ + ['hpage' => $nextPage]); ?>">›</a>
             </div>
         </div>
     </div>
 </div>
+
+<?php if (!empty($userData['core_partner_id']) && empty($historyItems)): ?>
+<script>
+  (function () {
+    const startedAt = Date.now();
+    const maxWaitMs = 120000;
+    const pollMs = 5000;
+
+    async function pollLiveState() {
+      if (Date.now() - startedAt > maxWaitMs) return;
+      try {
+        const res = await fetch('api/dashboard-live-state.php', { cache: 'no-store' });
+        if (!res.ok) throw new Error('Live state request failed');
+        const data = await res.json();
+        if (data && data.success && Number(data.bonusTotal || 0) > 0) {
+          window.location.reload();
+          return;
+        }
+      } catch (_) {
+        // ignore transient network errors
+      }
+      window.setTimeout(pollLiveState, pollMs);
+    }
+
+    window.setTimeout(pollLiveState, 2000);
+  })();
+</script>
+<?php endif; ?>
 
 <script>
   (function() {
     const select = document.getElementById('history-bonus-select');
     const selectedLabel = document.getElementById('history-bonus-selected');
     const dropdown = document.getElementById('history-bonus-dropdown');
-    const rows = Array.from(document.querySelectorAll('.history__row'));
+    const hiddenType = document.getElementById('history-bonus-type');
 
     function closeDropdown() {
       dropdown?.classList.remove('is-open');
@@ -145,12 +241,10 @@
       const type = item.getAttribute('data-type') || 'all';
       const label = item.textContent?.trim() || 'Тип бонуса';
       if (selectedLabel) selectedLabel.textContent = label;
-      rows.forEach((row) => {
-        const rowType = row.getAttribute('data-type');
-        row.style.display = (type === 'all' || rowType === type) ? '' : 'none';
-      });
+      if (hiddenType) hiddenType.value = type;
       closeDropdown();
     });
+
     document.addEventListener('click', (e) => {
       if (!dropdown || !select) return;
       if (dropdown.contains(e.target) || select.contains(e.target)) return;

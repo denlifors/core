@@ -9,7 +9,7 @@ $error = '';
 $info = '';
 $prefillLogin = sanitize($_GET['reg_id'] ?? '');
 if (!empty($_GET['confirmed'])) {
-    $info = 'Регистрация подтверждена. Введите ваш ID и пароль для входа.';
+    $info = 'Регистрация подтверждена. Введите ваш ID или E-mail и пароль для входа.';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         unset($_SESSION['redirect_after_login']);
         redirect($redirect);
     } else {
-        $error = 'Неверный ID или пароль';
+        $error = 'Неверный ID/E-mail или пароль';
     }
 }
 ?>
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <form method="POST" class="login-form">
                 <div class="login-form-group">
-                    <label class="login-label">ID</label>
+                    <label class="login-label">ID или E-mail</label>
                     <div class="login-input-wrapper">
                         <div class="login-input-icon login-icon-id">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             type="text" 
                             name="login" 
                             class="login-input" 
-                            placeholder="Ваш регистрационный номер" 
+                            placeholder="Ваш ID или E-mail" 
                             required 
                             autofocus
                             value="<?php echo htmlspecialchars($prefillLogin); ?>"

@@ -18,7 +18,7 @@
         <div class="dash__cardBody">
             <div class="dash__cardMetric">
                 <div class="dash__cardMetricLabel">Бонусы:</div>
-                <div class="dash__cardMetricValue">0</div>
+                <div class="dash__cardMetricValue"><?php echo number_format($dashBonusTotalDv ?? 0, 2, '.', ''); ?></div>
             </div>
             <div class="dash__cardMetric">
                 <div class="dash__cardMetricLabel">Ожидают вывода:</div>
@@ -51,7 +51,7 @@
         <div class="dash__cardBody dash__cardBody--cashback">
             <div class="dash__cardMetric">
                 <div class="dash__cardMetricLabel">Кэшбэк:</div>
-                <div class="dash__cardMetricValue">0 %</div>
+                <div class="dash__cardMetricValue"><?php echo number_format((float)($dashMetrics['partnerCashbackPercent'] ?? 0), 0, '.', ''); ?> %</div>
             </div>
         </div>
         <div class="dash__cardActions">
@@ -75,36 +75,36 @@
         <div class="dash__donutWrap">
             <div class="dash__donutTop">
                 <div class="dash__donutLabel">Общая сумма:</div>
-                <div class="dash__donutValue">0 DV</div>
+                <div class="dash__donutValue"><?php echo number_format($dashBonusTotalDv ?? 0, 2, '.', ''); ?> DV</div>
             </div>
             <div class="dash__donut"></div>
-            <div class="dash__donutCaption">0 DV</div>
+            <div class="dash__donutCaption"><?php echo number_format($dashBonusTotalDv ?? 0, 2, '.', ''); ?> DV</div>
         </div>
 
         <div class="dash__bonusGrid">
             <article class="dash__bonusCard dash__bonusCard--pink">
                 <div class="dash__bonusTitle">«Накопительный» кешбэк</div>
-                <div class="dash__bonusValue">0 DV</div>
+                <div class="dash__bonusValue"><?php echo number_format($dashBonusCashbackDv ?? 0, 2, '.', ''); ?> DV</div>
             </article>
             <article class="dash__bonusCard dash__bonusCard--gold">
                 <div class="dash__bonusTitle">Бонус «3 круга влияния»</div>
-                <div class="dash__bonusValue">0 DV</div>
+                <div class="dash__bonusValue"><?php echo number_format($dashBonusInfluenceDv ?? 0, 2, '.', ''); ?> DV</div>
             </article>
             <article class="dash__bonusCard dash__bonusCard--green">
                 <div class="dash__bonusTitle">Бонус «Баланс»</div>
-                <div class="dash__bonusValue">0 DV</div>
+                <div class="dash__bonusValue"><?php echo number_format($dashBonusBalanceDv ?? 0, 2, '.', ''); ?> DV</div>
             </article>
             <article class="dash__bonusCard dash__bonusCard--violet">
                 <div class="dash__bonusTitle">Бонус «Роста»</div>
-                <div class="dash__bonusValue">0 DV</div>
+                <div class="dash__bonusValue"><?php echo number_format($dashBonusGrowthDv ?? 0, 2, '.', ''); ?> DV</div>
             </article>
             <article class="dash__bonusCard dash__bonusCard--cyan">
                 <div class="dash__bonusTitle">«Глобальный» бонус</div>
-                <div class="dash__bonusValue">0 DV</div>
+                <div class="dash__bonusValue"><?php echo number_format($dashBonusGlobalDv ?? 0, 2, '.', ''); ?> DV</div>
             </article>
             <article class="dash__bonusCard dash__bonusCard--lilac">
                 <div class="dash__bonusTitle">«Представительский» бонус</div>
-                <div class="dash__bonusValue">0 DV</div>
+                <div class="dash__bonusValue"><?php echo number_format($dashBonusRepresentativeDv ?? 0, 2, '.', ''); ?> DV</div>
             </article>
         </div>
     </div>

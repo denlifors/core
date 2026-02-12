@@ -6,11 +6,12 @@ if (!isset($_GET['id'])) {
 $db = getDBConnection();
 $productId = (int)$_GET['id'];
 
-// Get product
-$stmt = $db->prepare("SELECT p.*, c.name as category_name, c.slug as category_slug 
-                      FROM products p 
-                      LEFT JOIN categories c ON p.category_id = c.id 
-                      WHERE p.id = :id AND p.status = 'active'");
+$stmt = $db->prepare("
+    SELECT p.*
+    FROM products p
+    WHERE p.id = :id
+    LIMIT 1
+");
 $stmt->execute([':id' => $productId]);
 $product = $stmt->fetch();
 
@@ -18,315 +19,193 @@ if (!$product) {
     redirect('dashboard.php?section=shop');
 }
 
-// Increment view count
-$db->prepare("UPDATE products SET view_count = view_count + 1 WHERE id = :id")->execute([':id' => $productId]);
+$price = (float)($product['price'] ?? 0);
+$productName = trim((string)($product['name'] ?? 'Товар ДенЛиФорс'));
+$productName = $productName !== '' ? $productName : 'Товар ДенЛиФорс';
 
-// Get related products
-$relatedStmt = $db->prepare("SELECT * FROM products 
-                             WHERE category_id = :category_id AND id != :id AND status = 'active' 
-                             LIMIT 2");
-$relatedStmt->execute([':category_id' => $product['category_id'], ':id' => $productId]);
-$relatedProducts = $relatedStmt->fetchAll();
-
-// Parse images
-$images = [];
-if ($product['images']) {
-    $images = json_decode($product['images'], true);
-    if (!is_array($images)) {
-        $images = [];
-    }
-}
-if ($product['image']) {
-    array_unshift($images, $product['image']);
-}
-
-// Parse documents
-$documents = [];
-if (!empty($product['documentation'])) {
-    $decoded = json_decode($product['documentation'], true);
-    if (is_array($decoded)) {
-        $documents = $decoded;
+$imageUrl = BASE_URL . 'assets/images/products/image1.png';
+if (!empty($product['image'])) {
+    $candidate = (string)$product['image'];
+    if (preg_match('#^https?://#i', $candidate)) {
+        $imageUrl = $candidate;
+    } elseif (is_file(ROOT_PATH . '/uploads/products/' . $candidate)) {
+        $imageUrl = BASE_URL . 'uploads/products/' . rawurlencode($candidate);
     }
 }
 
-// Parse "Что это такое?"
-$whatIsIt = [
-    'description' => '',
-    'consists_of' => [],
-    'release_form' => [],
-    'how_to_take' => '',
-    'recommendation' => '',
-    'nutritional_value' => [],
-    'duration' => '',
-    'contraindications' => '',
-    'precautions' => '',
-    'advantages' => []
-];
+$whatIsItText = trim((string)($product['full_description'] ?? $product['description'] ?? ''));
+if ($whatIsItText === '') {
+    $whatIsItText = 'Описание товара будет добавлено позже.';
+}
+
+$advantages = [];
 if (!empty($product['what_is_it'])) {
     $decoded = json_decode($product['what_is_it'], true);
-    if (is_array($decoded)) {
-        $whatIsIt = array_merge($whatIsIt, $decoded);
+    if (is_array($decoded) && !empty($decoded['advantages']) && is_array($decoded['advantages'])) {
+        $advantages = array_values(array_filter(array_map('trim', $decoded['advantages'])));
     }
+}
+if (empty($advantages)) {
+    $advantages = [
+        'Ведут активный образ жизни',
+        'Заботятся о своем здоровье',
+        'Хотят сохранить молодость и красоту как можно дольше',
+        'Стремятся к активному долголетию',
+    ];
+}
+
+$relatedStmt = $db->prepare("
+    SELECT id, name, sku, price, image
+    FROM products
+    WHERE id != :id AND status = 'active'
+    ORDER BY created_at DESC
+    LIMIT 2
+");
+$relatedStmt->execute([':id' => $productId]);
+$relatedProducts = $relatedStmt->fetchAll();
+
+while (count($relatedProducts) < 2) {
+    $relatedProducts[] = [
+        'id' => 0,
+        'name' => 'Формула сна',
+        'sku' => 'di- 487295037',
+        'price' => 3000,
+        'image' => null,
+    ];
 }
 ?>
 
 <div class="dashboard-product">
-    <!-- Кнопка Назад -->
     <a href="dashboard.php?section=shop" class="dashboard-product-back">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        <svg viewBox="0 0 24 24" fill="none">
+            <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         Назад
     </a>
-    
-    <div class="dashboard-product-content">
-        <!-- Левая колонка - Изображение товара -->
-        <div class="dashboard-product-left">
-            <div class="dashboard-product-image-card">
-                <?php if (!empty($images)): ?>
-                    <img src="<?php echo BASE_URL; ?>uploads/products/<?php echo $images[0]; ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" class="dashboard-product-main-image" onerror="this.style.display='none';">
-                <?php else: ?>
-                    <div class="dashboard-product-image-placeholder">Нет фото</div>
-                <?php endif; ?>
+
+    <section class="productv2">
+        <div class="productv2__imageCard">
+            <img
+                class="productv2__image"
+                src="<?php echo htmlspecialchars($imageUrl); ?>"
+                alt="<?php echo htmlspecialchars($productName); ?>"
+                onerror="this.onerror=null;this.src='<?php echo BASE_URL; ?>assets/images/products/image1.png';"
+            />
+        </div>
+
+        <div class="productv2__infoCard">
+            <h2 class="productv2__title"><?php echo htmlspecialchars(mb_strimwidth($productName, 0, 60, '...')); ?></h2>
+            <p class="productv2__desc"><?php echo htmlspecialchars(mb_strimwidth($whatIsItText, 0, 260, '...')); ?></p>
+        </div>
+
+        <div class="productv2__benefitsCard">
+            <h3 class="productv2__subTitle"><?php echo htmlspecialchars(mb_strimwidth($productName, 0, 60, '...')); ?></h3>
+            <div class="productv2__forWho">Для людей, которые:</div>
+            <div class="productv2__chips">
+                <?php foreach (array_slice($advantages, 0, 4) as $i => $adv): ?>
+                    <div class="productv2__chip productv2__chip--<?php echo $i + 1; ?>">
+                        <span class="productv2__chipDot"></span>
+                        <span><?php echo htmlspecialchars($adv); ?></span>
+                    </div>
+                <?php endforeach; ?>
             </div>
         </div>
-        
-        <!-- Правая колонка - Информация о товаре -->
-        <div class="dashboard-product-right">
-            <!-- Карточка с описанием -->
-            <div class="dashboard-product-card">
-                <h1 class="dashboard-product-card-title"><?php echo htmlspecialchars($product['name']); ?></h1>
-                <?php if ($product['full_description']): ?>
-                    <p class="dashboard-product-card-description"><?php echo nl2br(htmlspecialchars($product['full_description'])); ?></p>
-                <?php elseif ($product['description']): ?>
-                    <p class="dashboard-product-card-description"><?php echo nl2br(htmlspecialchars($product['description'])); ?></p>
-                <?php endif; ?>
-            </div>
-            
-            <!-- Карточка "Для людей, которые:" -->
-            <?php if (!empty($whatIsIt['advantages'])): ?>
-            <div class="dashboard-product-card">
-                <h2 class="dashboard-product-card-title"><?php echo htmlspecialchars($product['name']); ?></h2>
-                <h3 class="dashboard-product-card-subtitle">Для людей, которые:</h3>
-                <div class="dashboard-product-benefits-list">
-                    <?php foreach ($whatIsIt['advantages'] as $advantage): ?>
-                        <div class="dashboard-product-benefit-item">
-                            <div class="dashboard-product-benefit-checkbox checked"></div>
-                            <span><?php echo htmlspecialchars($advantage); ?></span>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-            
-            <!-- Карточка с документами -->
-            <?php if (!empty($documents)): ?>
-            <div class="dashboard-product-card">
-                <h2 class="dashboard-product-card-title">Товар соответствует высоким стандартам качества</h2>
-                <p class="dashboard-product-card-description">Мы используем современные технологии для изготовления нашей продукции</p>
-                <h3 class="dashboard-product-card-subtitle">Ознакомиться с документами:</h3>
-                <div class="dashboard-product-documents">
-                    <?php foreach ($documents as $doc): ?>
-                        <?php if (!empty($doc['file'])): ?>
-                            <a href="<?php echo BASE_URL; ?>download-documentation.php?file=<?php echo urlencode($doc['file']); ?>" target="_blank" class="dashboard-product-document-btn">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                    <polyline points="14 2 14 8 20 8"></polyline>
-                                </svg>
-                                <?php echo htmlspecialchars($doc['name'] ?: 'Документ'); ?>
-                            </a>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-            
-            <!-- Collapsible секции -->
-            <div class="dashboard-product-accordion">
-                <?php if ($product['description'] || $product['full_description']): ?>
-                <div class="dashboard-product-accordion-item">
-                    <button class="dashboard-product-accordion-header" onclick="toggleDashboardAccordion(this)">
-                        <span>Описание товара</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="dashboard-accordion-arrow">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </button>
-                    <div class="dashboard-product-accordion-content">
-                        <?php if ($product['full_description']): ?>
-                            <p><?php echo nl2br(htmlspecialchars($product['full_description'])); ?></p>
-                        <?php elseif ($product['description']): ?>
-                            <p><?php echo nl2br(htmlspecialchars($product['description'])); ?></p>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (!empty($whatIsIt['advantages'])): ?>
-                <div class="dashboard-product-accordion-item">
-                    <button class="dashboard-product-accordion-header" onclick="toggleDashboardAccordion(this)">
-                        <span>Преимущества товара</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="dashboard-accordion-arrow">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </button>
-                    <div class="dashboard-product-accordion-content">
-                        <ul class="dashboard-product-advantages-list">
-                            <?php foreach ($whatIsIt['advantages'] as $advantage): ?>
-                                <li><?php echo htmlspecialchars($advantage); ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                </div>
-                <?php endif; ?>
-            </div>
-            
-            <!-- Цена и кнопка В корзину -->
-            <div class="dashboard-product-purchase">
-                <div class="dashboard-product-price-section">
-                    <span class="dashboard-product-price-label">К оплате:</span>
-                    <span class="dashboard-product-price-value"><?php echo formatPrice($product['price']); ?></span>
-                </div>
-                <button class="dashboard-product-add-cart-btn" onclick="addToCart(<?php echo $product['id']; ?>)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="9" cy="21" r="1"/>
-                        <circle cx="20" cy="21" r="1"/>
-                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-                    </svg>
-                    В корзину
-                </button>
-            </div>
+
+        <div class="productv2__docsCard">
+            <h4 class="productv2__docsTitle">Товар соответствует высоким стандартам качества</h4>
+            <p class="productv2__docsText">Мы используем современные технологии для изготовления нашей продукции</p>
+            <p class="productv2__docsSub">Ознакомиться с документами:</p>
+
+            <a class="productv2__docBtn" href="#" onclick="return false;">
+                <img src="<?php echo $assetsImg; ?>/icons/document-box.svg" alt="" />
+                <span>ДЕКЛАРАЦИЯ СООТВЕТСТВИЯ</span>
+            </a>
+            <a class="productv2__docBtn" href="#" onclick="return false;">
+                <img src="<?php echo $assetsImg; ?>/icons/document-box.svg" alt="" />
+                <span>СЕРТИФИКАТ ПРОИЗВОДСТВА</span>
+            </a>
         </div>
-    </div>
-    
-    <!-- Секция "С этим товаром покупают" -->
-    <?php if (!empty($relatedProducts)): ?>
-    <div class="dashboard-product-related">
-        <h2 class="dashboard-product-related-title">С этим товаром покупают</h2>
-        <div class="dashboard-product-related-grid">
+
+        <button class="productv2__accordionRow" type="button" onclick="toggleProductRow(this)">
+            <span>Описание товара</span>
+            <span class="productv2__arrow">⌄</span>
+        </button>
+        <div class="productv2__accordionBody">
+            <?php echo nl2br(htmlspecialchars($whatIsItText)); ?>
+        </div>
+
+        <button class="productv2__accordionRow productv2__accordionRow--second" type="button" onclick="toggleProductRow(this)">
+            <span>Преимущества товара</span>
+            <span class="productv2__arrow">⌄</span>
+        </button>
+        <div class="productv2__accordionBody productv2__accordionBody--second">
+            <?php echo htmlspecialchars(implode(' • ', $advantages)); ?>
+        </div>
+
+        <div class="productv2__buyBar">
+            <div class="productv2__pay">
+                <span>К оплате:</span>
+                <strong><?php echo number_format($price, 0, ',', ' '); ?> ₽</strong>
+            </div>
+            <button class="productv2__buyBtn" type="button" onclick="addToCart(<?php echo $productId; ?>)">
+                🛒 В корзину
+            </button>
+        </div>
+
+        <section class="productv2__related">
             <?php foreach ($relatedProducts as $related): ?>
-                <div class="dashboard-product-related-card">
-                    <div class="dashboard-product-related-header">
-                        <span>С этим товаром покупают</span>
-                    </div>
-                    <div class="dashboard-product-related-image">
-                        <?php if ($related['image']): ?>
-                            <img src="<?php echo BASE_URL; ?>uploads/products/<?php echo $related['image']; ?>" alt="<?php echo htmlspecialchars($related['name']); ?>" onerror="this.style.display='none';">
-                        <?php else: ?>
-                            <div class="dashboard-product-related-placeholder">Нет фото</div>
-                        <?php endif; ?>
-                    </div>
-                    <div class="dashboard-product-related-info">
-                        <h3 class="dashboard-product-related-name"><?php echo htmlspecialchars($related['name']); ?></h3>
-                        <div class="dashboard-product-related-sku">Артикул: <?php echo htmlspecialchars($related['sku']); ?></div>
-                        <div class="dashboard-product-related-price"><?php echo formatPrice($related['price']); ?></div>
-                        <button class="dashboard-product-related-add" onclick="addToCart(<?php echo $related['id']; ?>)">
+                <?php
+                    $rId = (int)($related['id'] ?? 0);
+                    $rName = trim((string)($related['name'] ?? 'Формула сна'));
+                    $rSku = trim((string)($related['sku'] ?? 'di- 487295037'));
+                    $rPrice = (float)($related['price'] ?? 3000);
+
+                    $rImage = BASE_URL . 'assets/images/products/image2.png';
+                    if (!empty($related['image'])) {
+                        $cand = (string)$related['image'];
+                        if (preg_match('#^https?://#i', $cand)) {
+                            $rImage = $cand;
+                        } elseif (is_file(ROOT_PATH . '/uploads/products/' . $cand)) {
+                            $rImage = BASE_URL . 'uploads/products/' . rawurlencode($cand);
+                        }
+                    }
+                ?>
+                <article class="productv2__relatedCard">
+                    <div class="productv2__relatedHead">С этим товаром покупают</div>
+
+                    <div class="productv2__relatedBody">
+                        <div class="productv2__relatedThumb">
+                            <img src="<?php echo htmlspecialchars($rImage); ?>" alt="<?php echo htmlspecialchars($rName); ?>" onerror="this.onerror=null;this.src='<?php echo BASE_URL; ?>assets/images/products/image2.png';" />
+                        </div>
+                        <div class="productv2__relatedInfo">
+                            <div class="productv2__relatedName"><?php echo htmlspecialchars($rName); ?></div>
+                            <div class="productv2__relatedSku">Артикул: <?php echo htmlspecialchars($rSku); ?></div>
+                            <div class="productv2__relatedPrice"><?php echo number_format($rPrice, 0, ',', ' '); ?> ₽ (100 DV)</div>
+                        </div>
+                        <button class="productv2__relatedAdd" type="button" <?php echo $rId > 0 ? ('onclick="addToCart(' . $rId . ')"') : 'disabled'; ?>>
                             Добавить
                         </button>
                     </div>
-                </div>
+                </article>
             <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
+        </section>
+    </section>
 </div>
 
 <script>
-function toggleDashboardAccordion(button) {
-    const item = button.closest('.dashboard-product-accordion-item');
-    const content = item.querySelector('.dashboard-product-accordion-content');
-    const arrow = button.querySelector('.dashboard-accordion-arrow');
-    const isOpen = item.classList.contains('active');
-    
-    // Закрываем все другие элементы
-    document.querySelectorAll('.dashboard-product-accordion-item').forEach(accordionItem => {
-        if (accordionItem !== item) {
-            accordionItem.classList.remove('active');
-            const otherContent = accordionItem.querySelector('.dashboard-product-accordion-content');
-            const otherArrow = accordionItem.querySelector('.dashboard-accordion-arrow');
-            if (otherContent) {
-                otherContent.style.maxHeight = null;
-            }
-            if (otherArrow) {
-                otherArrow.style.transform = 'rotate(0deg)';
-            }
-        }
-    });
-    
-    // Переключаем текущий элемент
-    if (isOpen) {
-        item.classList.remove('active');
-        if (content) content.style.maxHeight = null;
-        if (arrow) arrow.style.transform = 'rotate(0deg)';
-    } else {
-        item.classList.add('active');
-        if (content) {
-            content.style.maxHeight = content.scrollHeight + 'px';
-        }
-        if (arrow) arrow.style.transform = 'rotate(180deg)';
-    }
-}
-
 function addToCart(productId) {
-    const baseUrl = window.BASE_URL || '<?php echo BASE_URL; ?>';
-    fetch(baseUrl + 'api/cart-add.php', {
+    fetch('<?php echo BASE_URL; ?>api/cart-add.php', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            product_id: productId,
-            quantity: 1
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            if (typeof updateDashboardCartCount === 'function') {
-                updateDashboardCartCount();
-            }
-            if (typeof showNotification === 'function') {
-                showNotification('Товар добавлен в корзину', 'success');
-            } else {
-                alert('Товар добавлен в корзину');
-            }
-        } else {
-            alert('Ошибка: ' + (data.message || 'Не удалось добавить товар'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Произошла ошибка при добавлении товара в корзину');
-    });
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId, quantity: 1 })
+    }).catch(() => {});
 }
 
-function showNotification(message, type = 'success') {
-    const notification = document.createElement('div');
-    notification.className = `dashboard-notification dashboard-notification-${type}`;
-    notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 100px;
-        right: 20px;
-        background: ${type === 'success' ? '#48bb78' : '#f56565'};
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 10001;
-        animation: slideIn 0.3s ease;
-        font-weight: 500;
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                document.body.removeChild(notification);
-            }
-        }, 300);
-    }, 3000);
+function toggleProductRow(btn) {
+    const body = btn.nextElementSibling;
+    if (!body || !body.classList.contains('productv2__accordionBody')) return;
+    body.classList.toggle('is-open');
+    btn.classList.toggle('is-open');
 }
 </script>
 

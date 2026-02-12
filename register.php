@@ -1,6 +1,7 @@
 <?php
 require_once 'config/config.php';
 require_once 'includes/mail.php';
+require_once 'includes/core-client.php';
 
 if (isLoggedIn()) {
     redirect('index.php');
@@ -9,7 +10,9 @@ if (isLoggedIn()) {
 $error = '';
 $success = '';
 $ref = sanitize($_GET['ref'] ?? $_POST['consultant_id'] ?? '');
-$isPartnerFlow = !empty($ref);
+$consultantPreset = sanitize($_GET['consultant_id'] ?? '');
+$isPartnerFlow = !empty($ref) && (($_GET['flow'] ?? '') === 'partner');
+$hasConsultantPreset = !empty($ref) || !empty($consultantPreset);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = sanitize($_POST['email'] ?? '');
@@ -104,18 +107,173 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ]);
 
                         $registrationNumber = (int)$db->lastInsertId();
-                        $confirmLink = BASE_URL . 'partner-confirm.php?token=' . $token;
-                        $mailSent = sendPartnerConfirmEmail($email, $fullName ?: $firstName, $confirmLink, $registrationNumber, $password);
 
-                        if ($mailSent) {
-                            $success = 'Письмо подтверждения отправлено на ваш email. Перейдите по ссылке для завершения регистрации.';
+                        if (defined('PARTNER_AUTO_CONFIRM') && PARTNER_AUTO_CONFIRM) {
+                            $coreErr = null;
+                            $coreResult = corePostJson('/register-partner', [
+                                'email' => $email,
+                                'password' => $password,
+                                'sponsorPartnerId' => $ref,
+                            ], $coreErr);
+
+                            if (!$coreResult || ($coreResult['status'] ?? 500) >= 400) {
+                                $error = 'Ошибка регистрации в ядре. Повторите ещё раз.';
+                            } else {
+                                $coreUserId = $coreResult['data']['user']['id'] ?? null;
+                                $corePartnerId = $coreResult['data']['partner']['id'] ?? null;
+
+                                if (!$coreUserId || !$corePartnerId) {
+                                    $error = 'Ядро вернуло неполные данные партнёра.';
+                                } else {
+                                    $db->prepare(
+                                        "UPDATE partner_registrations
+                                         SET status = 'confirmed',
+                                             confirmed_at = NOW(),
+                                             core_user_id = :core_user_id,
+                                             core_partner_id = :core_partner_id,
+                                             core_customer_id = NULL,
+                                             password_plain = NULL
+                                         WHERE id = :id"
+                                    )->execute([
+                                        ':core_user_id' => $coreUserId,
+                                        ':core_partner_id' => $corePartnerId,
+                                        ':id' => $registrationNumber,
+                                    ]);
+
+                                    $existingUserStmt = $db->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
+                                    $existingUserStmt->execute([':email' => $email]);
+                                    $existingUser = $existingUserStmt->fetch();
+
+                                    if ($existingUser) {
+                                        $db->prepare(
+                                            "UPDATE users
+                                             SET role = 'partner',
+                                                 core_user_id = :core_user_id,
+                                                 core_partner_id = :core_partner_id,
+                                                 core_customer_id = NULL
+                                             WHERE id = :id"
+                                        )->execute([
+                                            ':core_user_id' => $coreUserId,
+                                            ':core_partner_id' => $corePartnerId,
+                                            ':id' => (int)$existingUser['id'],
+                                        ]);
+                                    } else {
+                                        $db->prepare(
+                                            "INSERT INTO users (email, password, first_name, last_name, phone, role, consultant_id, core_user_id, core_partner_id, core_customer_id)
+                                             VALUES (:email, :password, :first_name, :last_name, :phone, 'partner', :consultant_id, :core_user_id, :core_partner_id, NULL)"
+                                        )->execute([
+                                            ':email' => $email,
+                                            ':password' => $hashedPassword,
+                                            ':first_name' => $firstName,
+                                            ':last_name' => $lastName,
+                                            ':phone' => $phone,
+                                            ':consultant_id' => is_numeric($consultantId) ? (int)$consultantId : null,
+                                            ':core_user_id' => $coreUserId,
+                                            ':core_partner_id' => $corePartnerId,
+                                        ]);
+                                    }
+
+                                    redirect('login.php?confirmed=1&reg_id=' . $registrationNumber);
+                                }
+                            }
                         } else {
-                            $success = 'Заявка создана. Письмо не отправлено (локальная среда). Проверьте файл logs/mail.log.';
+                            $confirmLink = BASE_URL . 'partner-confirm.php?token=' . $token;
+                            $mailSent = sendPartnerConfirmEmail($email, $fullName ?: $firstName, $confirmLink, $registrationNumber, $password);
+
+                            if ($mailSent) {
+                                $success = 'Письмо подтверждения отправлено на ваш email. Перейдите по ссылке для завершения регистрации.';
+                            } else {
+                                $success = 'Заявка создана. Письмо не отправлено (локальная среда). Проверьте файл logs/mail.log.';
+                            }
                         }
                     }
                 }
             } else {
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+                $resolvedConsultantId = null;
+                if ($consultantId !== '') {
+                    if (is_numeric($consultantId)) {
+                        $candidateId = (int)$consultantId;
+
+                        // Предпочтительно храним consultant_id как users.id активного партнёра.
+                        $userByIdStmt = $db->prepare("
+                            SELECT id
+                            FROM users
+                            WHERE id = :id
+                              AND role = 'partner'
+                              AND core_partner_id IS NOT NULL
+                            LIMIT 1
+                        ");
+                        $userByIdStmt->execute([':id' => $candidateId]);
+                        $userById = $userByIdStmt->fetch();
+                        if ($userById && !empty($userById['id'])) {
+                            $resolvedConsultantId = (int)$userById['id'];
+                        }
+
+                        // Если это registration id, пробуем найти email и затем users.id партнёра.
+                        if ($resolvedConsultantId === null) {
+                            $regByIdStmt = $db->prepare("
+                                SELECT email
+                                FROM partner_registrations
+                                WHERE id = :id
+                                  AND status = 'confirmed'
+                                LIMIT 1
+                            ");
+                            $regByIdStmt->execute([':id' => $candidateId]);
+                            $regById = $regByIdStmt->fetch();
+                            if ($regById && !empty($regById['email'])) {
+                                $userByEmailStmt = $db->prepare("
+                                    SELECT id
+                                    FROM users
+                                    WHERE email = :email
+                                      AND role = 'partner'
+                                      AND core_partner_id IS NOT NULL
+                                    LIMIT 1
+                                ");
+                                $userByEmailStmt->execute([':email' => (string)$regById['email']]);
+                                $userByEmail = $userByEmailStmt->fetch();
+                                if ($userByEmail && !empty($userByEmail['id'])) {
+                                    $resolvedConsultantId = (int)$userByEmail['id'];
+                                }
+                            }
+                        }
+
+                        // Крайний fallback: сохраняем как есть.
+                        if ($resolvedConsultantId === null) {
+                            $resolvedConsultantId = $candidateId;
+                        }
+                    } else {
+                        // Совместимость со старыми ссылками вида register.php?ref=<core_partner_id>
+                        $mapStmt = $db->prepare("
+                            SELECT id
+                            FROM partner_registrations
+                            WHERE core_partner_id = :pid
+                              AND status = 'confirmed'
+                            ORDER BY confirmed_at DESC, id DESC
+                            LIMIT 1
+                        ");
+                        $mapStmt->execute([':pid' => $consultantId]);
+                        $mapped = $mapStmt->fetch();
+                        if ($mapped && !empty($mapped['id'])) {
+                            $resolvedConsultantId = (int)$mapped['id'];
+                        } else {
+                            $mapUserStmt = $db->prepare("
+                                SELECT id
+                                FROM users
+                                WHERE core_partner_id = :pid
+                                  AND role = 'partner'
+                                LIMIT 1
+                            ");
+                            $mapUserStmt->execute([':pid' => $consultantId]);
+                            $mappedUser = $mapUserStmt->fetch();
+                            if ($mappedUser && !empty($mappedUser['id'])) {
+                                $resolvedConsultantId = (int)$mappedUser['id'];
+                            }
+                        }
+                    }
+                }
+
                 // Обычная регистрация клиента
                 $insertData = [
                     ':email' => $email,
@@ -135,10 +293,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $insertData[':birth_date'] = $birthDate;
                 }
 
-                if ($consultantId && is_numeric($consultantId)) {
+                if ($resolvedConsultantId !== null) {
                     $sql .= ", consultant_id";
                     $values .= ", :consultant_id";
-                    $insertData[':consultant_id'] = (int)$consultantId;
+                    $insertData[':consultant_id'] = $resolvedConsultantId;
                 }
 
                 $sql .= ") " . $values . ")";
@@ -326,8 +484,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             name="consultant_id" 
                             class="register-input" 
                             placeholder="Введите регистрационный номер"
-                            value="<?php echo htmlspecialchars($ref ?: ($_POST['consultant_id'] ?? '')); ?>"
-                            <?php if ($isPartnerFlow): ?>readonly required<?php endif; ?>
+                            value="<?php echo htmlspecialchars($ref ?: ($_POST['consultant_id'] ?? $consultantPreset)); ?>"
+                            <?php if ($hasConsultantPreset): ?>readonly required<?php endif; ?>
                         >
                     </div>
                 </div>

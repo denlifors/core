@@ -7,7 +7,7 @@
                 <img class="dash__rankMid" src="<?php echo $assetsImg; ?>/rank_mid.png" alt="" />
                 <img class="dash__avatar" src="<?php echo $assetsImg; ?>/avatar.jpg" alt="" />
                 <img class="dash__rankLabel" src="<?php echo $assetsImg; ?>/rank_label.png" alt="" />
-                <div class="dash__rankText">Партнёр</div>
+                <div class="dash__rankText"><?php echo htmlspecialchars($currentUserRankLabel ?? 'Партнёр'); ?></div>
               </div>
               <div class="dash__userNameRow">
                 <div class="dash__userName"><?php echo htmlspecialchars($fullName); ?></div>
@@ -45,7 +45,7 @@
                 </div>
                 <div class="dash__kpiText">
                   <div class="dash__kpiValueRow is-bold">
-                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiValue"><?php echo number_format((float)($dashMetrics['personalMonthDv'] ?? 0), 2, '.', ''); ?></span>
                     <span class="dash__kpiUnit">DV</span>
                   </div>
                   <div class="dash__kpiLabel">Общая сумма DV</div>
@@ -58,7 +58,7 @@
                 </div>
                 <div class="dash__kpiText">
                   <div class="dash__kpiValueRow">
-                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiValue"><?php echo number_format((float)($dashBonusCashbackDv ?? 0), 2, '.', ''); ?></span>
                     <span class="dash__kpiUnit">DV</span>
                   </div>
                   <div class="dash__kpiLabel">«Накопительный» кешбэк</div>
@@ -71,7 +71,7 @@
                 </div>
                 <div class="dash__kpiText">
                   <div class="dash__kpiValueRow">
-                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiValue"><?php echo number_format((float)($dashBonusInfluenceDv ?? 0), 2, '.', ''); ?></span>
                     <span class="dash__kpiUnit">DV</span>
                   </div>
                   <div class="dash__kpiLabel">Бонус «3 круга влияния»</div>
@@ -84,7 +84,7 @@
                 </div>
                 <div class="dash__kpiText">
                   <div class="dash__kpiValueRow">
-                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiValue"><?php echo number_format((float)($dashBonusBalanceDv ?? 0), 2, '.', ''); ?></span>
                     <span class="dash__kpiUnit">DV</span>
                   </div>
                   <div class="dash__kpiLabel">Бонус «Баланс»</div>
@@ -97,7 +97,7 @@
                 </div>
                 <div class="dash__kpiText">
                   <div class="dash__kpiValueRow">
-                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiValue"><?php echo number_format((float)($dashBonusGrowthDv ?? 0), 2, '.', ''); ?></span>
                     <span class="dash__kpiUnit">DV</span>
                   </div>
                   <div class="dash__kpiLabel">Бонус «Роста»</div>
@@ -110,7 +110,7 @@
                 </div>
                 <div class="dash__kpiText">
                   <div class="dash__kpiValueRow">
-                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiValue"><?php echo number_format((float)($dashBonusGlobalDv ?? 0), 2, '.', ''); ?></span>
                     <span class="dash__kpiUnit">DV</span>
                   </div>
                   <div class="dash__kpiLabel">«Глобальный» бонус</div>
@@ -123,7 +123,7 @@
                 </div>
                 <div class="dash__kpiText">
                   <div class="dash__kpiValueRow">
-                    <span class="dash__kpiValue">0</span>
+                    <span class="dash__kpiValue"><?php echo number_format((float)($dashBonusRepresentativeDv ?? 0), 2, '.', ''); ?></span>
                     <span class="dash__kpiUnit">DV</span>
                   </div>
                   <div class="dash__kpiLabel">«Представительский» бонус</div>
@@ -139,7 +139,7 @@
                   <img class="dash__rankMid" src="<?php echo $assetsImg; ?>/rank_mid.png" alt="" />
                   <img class="dash__avatar" src="<?php echo $assetsImg; ?>/avatar.jpg" alt="" />
                   <img class="dash__rankLabel" src="<?php echo $assetsImg; ?>/rank_label.png" alt="" />
-                  <div class="dash__rankText">Партнёр</div>
+                  <div class="dash__rankText"><?php echo htmlspecialchars($consultantRankLabel ?? 'Партнёр'); ?></div>
                 </div>
                 <div class="dash__consultantInfo">
                   <div class="dash__consultantName"><?php echo htmlspecialchars($consultantName); ?></div>

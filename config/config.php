@@ -10,6 +10,8 @@ define('CORE_API_BASE_URL', 'http://localhost:3000');
 
 // Partner confirmation settings
 define('PARTNER_CONFIRM_TTL_HOURS', 48);
+// Local demo mode: instantly confirm partner registrations via referral link.
+define('PARTNER_AUTO_CONFIRM', true);
 
 // Mail settings
 define('MAIL_FROM', 'admin@denlifors.ru');

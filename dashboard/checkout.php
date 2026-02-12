@@ -3,6 +3,8 @@
 if (!defined('BASE_URL')) {
     require_once dirname(__DIR__) . '/config/config.php';
 }
+require_once dirname(__DIR__) . '/includes/core-client.php';
+require_once dirname(__DIR__) . '/includes/partner-rank.php';
 
 $db = getDBConnection();
 
@@ -52,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Create order
         $stmt = $db->prepare("INSERT INTO orders (user_id, order_number, total, first_name, last_name, email, phone, address, city, postal_code, payment_method, notes, status) 
-                              VALUES (:user_id, :order_number, :total, :first_name, :last_name, :email, :phone, :address, :city, :postal_code, :payment_method, :notes, 'pending')");
+                              VALUES (:user_id, :order_number, :total, :first_name, :last_name, :email, :phone, :address, :city, :postal_code, :payment_method, :notes, 'delivered')");
         $stmt->execute([
             ':user_id' => $_SESSION['user_id'],
             ':order_number' => $orderNumber,
@@ -84,8 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':quantity' => $item['quantity']
             ]);
             
-            // Update product stock and sales count
-            $db->prepare("UPDATE products SET stock = stock - :quantity, sales_count = sales_count + :quantity WHERE id = :id")
+            // Update product stock (без несуществующего sales_count)
+            $db->prepare("UPDATE products SET stock = GREATEST(COALESCE(stock,0) - :quantity, 0) WHERE id = :id")
                ->execute([':quantity' => $item['quantity'], ':id' => $item['product_id']]);
         }
         
@@ -93,7 +95,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->prepare("DELETE FROM cart WHERE user_id = :user_id")->execute([':user_id' => $_SESSION['user_id']]);
         
         $db->commit();
-        
+
+        // Синхронизируем покупку в ядро и формируем авто-событие статуса.
+        try {
+            $freshUserStmt = $db->prepare("SELECT id, email, role, core_user_id, core_partner_id, core_customer_id FROM users WHERE id = :id LIMIT 1");
+            $freshUserStmt->execute([':id' => $_SESSION['user_id']]);
+            $freshUser = $freshUserStmt->fetch() ?: $user;
+
+            $buyerType = null;
+            $buyerId = null;
+
+            if (!empty($freshUser['core_partner_id']) && ($freshUser['role'] ?? '') === 'partner') {
+                $buyerType = 'PARTNER';
+                $buyerId = (string)$freshUser['core_partner_id'];
+            } else {
+                if (!empty($freshUser['email'])) {
+                    $partnerLookupErr = null;
+                    $partnerLookup = coreGetJson('/debug/partner-id?email=' . urlencode((string)$freshUser['email']), $partnerLookupErr);
+                    if ($partnerLookup && ($partnerLookup['status'] ?? 500) < 400 && !empty($partnerLookup['data']['partnerId'])) {
+                        $existingPartnerId = (string)$partnerLookup['data']['partnerId'];
+                        $db->prepare("UPDATE users SET role = 'partner', core_partner_id = :pid WHERE id = :id")
+                            ->execute([':pid' => $existingPartnerId, ':id' => $_SESSION['user_id']]);
+                        $_SESSION['user_role'] = 'partner';
+                        $freshUser['role'] = 'partner';
+                        $freshUser['core_partner_id'] = $existingPartnerId;
+                        $buyerType = 'PARTNER';
+                        $buyerId = $existingPartnerId;
+                    }
+                }
+
+                if (empty($freshUser['core_customer_id']) && !empty($freshUser['email'])) {
+                    $sponsorPartnerId = null;
+                    if (!$buyerType) {
+                        $sponsorStmt = $db->prepare("
+                            SELECT sponsor_partner_id
+                            FROM partner_registrations
+                            WHERE email = :email
+                            ORDER BY created_at DESC, id DESC
+                            LIMIT 1
+                        ");
+                        $sponsorStmt->execute([':email' => (string)$freshUser['email']]);
+                        $sponsorRow = $sponsorStmt->fetch();
+                        if (!empty($sponsorRow['sponsor_partner_id'])) {
+                            $candidateSponsor = (string)$sponsorRow['sponsor_partner_id'];
+                            $sponsorCheckErr = null;
+                            $sponsorCheck = coreGetJson('/partner-summary?partnerId=' . urlencode($candidateSponsor), $sponsorCheckErr);
+                            if ($sponsorCheck && ($sponsorCheck['status'] ?? 500) < 400) {
+                                $sponsorPartnerId = $candidateSponsor;
+                            }
+                        }
+                    }
+
+                    if (!$buyerType) {
+                        $tmpPassword = 'tmp_' . bin2hex(random_bytes(8));
+                        $registerCustomerErr = null;
+                        $registerCustomer = corePostJson('/register-customer', [
+                            'email' => (string)$freshUser['email'],
+                            'password' => $tmpPassword,
+                            'sponsorPartnerId' => $sponsorPartnerId
+                        ], $registerCustomerErr);
+
+                        if ($registerCustomer && ($registerCustomer['status'] ?? 500) < 400) {
+                            $coreUserId = $registerCustomer['data']['user']['id'] ?? null;
+                            $coreCustomerId = $registerCustomer['data']['customer']['id'] ?? null;
+                            if ($coreCustomerId) {
+                                $db->prepare("
+                                    UPDATE users
+                                    SET core_user_id = COALESCE(:core_user_id, core_user_id),
+                                        core_customer_id = :core_customer_id
+                                    WHERE id = :id
+                                ")->execute([
+                                    ':core_user_id' => $coreUserId,
+                                    ':core_customer_id' => $coreCustomerId,
+                                    ':id' => $_SESSION['user_id'],
+                                ]);
+                                $freshUser['core_customer_id'] = $coreCustomerId;
+                                if ($coreUserId) {
+                                    $freshUser['core_user_id'] = $coreUserId;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!empty($freshUser['core_customer_id'])) {
+                    $buyerType = 'CUSTOMER';
+                    $buyerId = (string)$freshUser['core_customer_id'];
+                }
+            }
+
+            if ($buyerType && $buyerId) {
+                $itemsPayload = [];
+                foreach ($cartItems as $item) {
+                    $linePrice = (float)$item['price'] * (int)$item['quantity'];
+                    $lineDv = (int)floor($linePrice / 30);
+                    if ($lineDv < 1) {
+                        $lineDv = 1;
+                    }
+                    $itemsPayload[] = [
+                        'name' => (string)$item['name'],
+                        'priceRub' => $linePrice,
+                        'dv' => $lineDv,
+                    ];
+                }
+
+                $corePurchaseErr = null;
+                $coreResult = corePostJson('/purchase', [
+                    'buyerType' => $buyerType,
+                    'buyerId' => $buyerId,
+                    'items' => $itemsPayload,
+                    'useCashbackRub' => 0
+                ], $corePurchaseErr);
+
+                if ($coreResult && isset($coreResult['data']['upgradedPartner']['id'])) {
+                    $newPartnerId = $coreResult['data']['upgradedPartner']['id'];
+                    $db->prepare("UPDATE users SET role = 'partner', core_partner_id = :pid WHERE id = :id")
+                        ->execute([':pid' => $newPartnerId, ':id' => $_SESSION['user_id']]);
+                    $_SESSION['user_role'] = 'partner';
+                    $freshUser['role'] = 'partner';
+                    $freshUser['core_partner_id'] = $newPartnerId;
+                } elseif ($corePurchaseErr) {
+                    error_log('Core purchase sync failed: ' . $corePurchaseErr);
+                }
+            }
+
+            // Автосинхронизация ранга и единоразовая модалка при изменении.
+            $freshUserSyncStmt = $db->prepare("SELECT id, core_partner_id FROM users WHERE id = :id LIMIT 1");
+            $freshUserSyncStmt->execute([':id' => $_SESSION['user_id']]);
+            $syncUser = $freshUserSyncStmt->fetch();
+            if ($syncUser) {
+                syncUserRankEvent($db, $syncUser);
+            }
+        } catch (Throwable $syncErr) {
+            error_log('Checkout sync error: ' . $syncErr->getMessage());
+        }
+
         redirect('dashboard.php?section=order-success&order=' . $orderNumber);
     } catch (Exception $e) {
         $db->rollBack();

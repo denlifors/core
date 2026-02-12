@@ -5,7 +5,7 @@ $emailText = !empty($userData['email']) ? $userData['email'] : '—';
 ?>
 <div class="profile">
     <div class="profile__panel">
-        <div class="profile__userBadge">
+        <div class="profile__userBadge profile__userBadge--self">
             <img class="profile__rankTop" src="<?php echo $assetsImg; ?>/rank_top.png" alt="" />
             <img class="profile__rankMid" src="<?php echo $assetsImg; ?>/rank_mid.png" alt="" />
             <img class="profile__avatar" src="<?php echo $assetsImg; ?>/avatar.jpg" alt="" />
@@ -27,10 +27,11 @@ $emailText = !empty($userData['email']) ? $userData['email'] : '—';
                     <img class="profile__rankMid" src="<?php echo $assetsImg; ?>/rank_mid.png" alt="" />
                     <img class="profile__avatar" src="<?php echo $assetsImg; ?>/avatar.jpg" alt="" />
                     <img class="profile__rankLabel" src="<?php echo $assetsImg; ?>/rank_label.png" alt="" />
+                    <div class="profile__rankText"><?php echo htmlspecialchars($consultantRankLabel ?? 'Партнёр'); ?></div>
                 </div>
                 <div class="profile__consultantInfo">
-                    <div class="profile__consultantName">Данные появятся позже</div>
-                    <div class="profile__consultantId">ID: —</div>
+                    <div class="profile__consultantName"><?php echo htmlspecialchars($consultantName ?? 'Данные появятся позже'); ?></div>
+                    <div class="profile__consultantId">ID: <?php echo htmlspecialchars((string)($consultantId ?? '—')); ?></div>
                 </div>
             </div>
             <div class="profile__consultantActions">

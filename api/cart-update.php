@@ -21,8 +21,8 @@ $db = getDBConnection();
 
 // Get cart item
 $whereClause = isLoggedIn() 
-    ? "id = :cart_id AND user_id = :user_id"
-    : "id = :cart_id AND session_id = :session_id";
+    ? "c.id = :cart_id AND c.user_id = :user_id"
+    : "c.id = :cart_id AND c.session_id = :session_id";
     
 $params = [':cart_id' => $cartId];
 if (isLoggedIn()) {
@@ -31,7 +31,7 @@ if (isLoggedIn()) {
     $params[':session_id'] = session_id();
 }
 
-$stmt = $db->prepare("SELECT c.*, p.stock FROM cart c JOIN products p ON c.product_id = p.id WHERE $whereClause");
+$stmt = $db->prepare("SELECT c.*, p.stock FROM cart c LEFT JOIN products p ON c.product_id = p.id WHERE $whereClause");
 $stmt->execute($params);
 $cartItem = $stmt->fetch();
 
@@ -40,8 +40,11 @@ if (!$cartItem) {
     exit;
 }
 
-if ($quantity > $cartItem['stock']) {
-    $quantity = $cartItem['stock'];
+if (isset($cartItem['stock']) && (int)$cartItem['stock'] > 0 && $quantity > (int)$cartItem['stock']) {
+    $quantity = (int)$cartItem['stock'];
+}
+if ($quantity < 1) {
+    $quantity = 1;
 }
 
 try {

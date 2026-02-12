@@ -201,6 +201,48 @@ function getMaxInfluenceCircle(selfMonthDv) {
   return 0;
 }
 
+const growthRankRules = [
+  { code: 'GENERAL_DIRECTOR', minSmallLegDv: 480000, minPersonalDv: 4800, depth: 9 },
+  { code: 'COMMERCIAL_DIRECTOR', minSmallLegDv: 240000, minPersonalDv: 2400, depth: 8 },
+  { code: 'EXECUTIVE_DIRECTOR', minSmallLegDv: 120000, minPersonalDv: 1200, depth: 7 },
+  { code: 'DIRECTOR', minSmallLegDv: 48000, minPersonalDv: 900, depth: 6 },
+  { code: 'DIAMOND', minSmallLegDv: 24000, minPersonalDv: 600, depth: 5 },
+  { code: 'PLATINUM', minSmallLegDv: 12000, minPersonalDv: 300, depth: 4 },
+  { code: 'GOLD', minSmallLegDv: 6000, minPersonalDv: 200, depth: 3 },
+  { code: 'SILVER', minSmallLegDv: 3000, minPersonalDv: 200, depth: 2 },
+  { code: 'BRONZE', minSmallLegDv: 1000, minPersonalDv: 100, depth: 1 },
+];
+
+function resolveGrowthRankCode({ partnerStatus, personalMonthDv, smallLegDv }) {
+  if (partnerStatus !== 'ACTIVE') return 'PARTNER';
+  for (const rule of growthRankRules) {
+    if (smallLegDv >= rule.minSmallLegDv && personalMonthDv >= rule.minPersonalDv) {
+      return rule.code;
+    }
+  }
+  return 'PARTNER';
+}
+
+function getPartnerCashbackPercentByMonthDv(personalMonthDv) {
+  if (personalMonthDv >= 1200) return 5;
+  if (personalMonthDv >= 600) return 3;
+  if (personalMonthDv >= 300) return 2;
+  return 0;
+}
+
+async function getSelfWeekDv(tx, partnerId, d = new Date()) {
+  const from = getWeekStartUTC(d);
+  const agg = await tx.volumeLedger.aggregate({
+    where: {
+      partnerId,
+      orderId: { not: null },
+      createdAt: { gte: from, lte: d },
+    },
+    _sum: { dv: true },
+  });
+  return Number(agg._sum.dv || 0);
+}
+
 function getBaseUrl(req) {
   const proto = (req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
   const host = req.headers.host || 'localhost';
@@ -414,15 +456,89 @@ const server = http.createServer(async (req, res) => {
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        const user = await tx.user.create({
-          data: { email, password, role: 'CUSTOMER' },
+        let resolvedSponsorId = sponsorPartnerId || null;
+
+        if (resolvedSponsorId) {
+          const sponsorNode = await tx.binaryNode.findUnique({
+            where: { partnerId: resolvedSponsorId },
+            select: { partnerId: true },
+          });
+          if (!sponsorNode) {
+            resolvedSponsorId = null;
+          }
+        }
+
+        if (!resolvedSponsorId) {
+          const anyRootedPartner = await tx.binaryNode.findFirst({
+            select: { partnerId: true },
+            orderBy: { id: 'asc' },
+          });
+          if (anyRootedPartner?.partnerId) {
+            resolvedSponsorId = anyRootedPartner.partnerId;
+          }
+        }
+
+        if (!resolvedSponsorId) {
+          const systemEmail = 'system.sponsor@denlifors.local';
+          let systemUser = await tx.user.findUnique({
+            where: { email: systemEmail },
+            include: { partner: true },
+          });
+
+          if (!systemUser) {
+            systemUser = await tx.user.create({
+              data: { email: systemEmail, password: 'system_sponsor_bootstrap', role: 'PARTNER' },
+              include: { partner: true },
+            });
+          }
+
+          let systemPartner = systemUser.partner;
+          if (!systemPartner) {
+            systemPartner = await tx.partner.create({
+              data: { userId: systemUser.id, sponsorId: null, status: 'ACTIVE', activatedAt: new Date() },
+            });
+            await tx.wallet.create({ data: { partnerId: systemPartner.id, balance: 0 } });
+          }
+
+          const node = await tx.binaryNode.findUnique({ where: { partnerId: systemPartner.id } });
+          if (!node) {
+            await placeInBinary(tx, null, 'LEFT', systemPartner.id);
+          }
+
+          resolvedSponsorId = systemPartner.id;
+        }
+
+        let user = await tx.user.findUnique({
+          where: { email },
+          include: { customer: true },
         });
 
-        const customer = await tx.customer.create({
-          data: { userId: user.id, partnerId: sponsorPartnerId },
-        });
+        if (!user) {
+          user = await tx.user.create({
+            data: { email, password, role: 'CUSTOMER' },
+            include: { customer: true },
+          });
+        } else if (user.role !== 'CUSTOMER') {
+          user = await tx.user.update({
+            where: { id: user.id },
+            data: { role: 'CUSTOMER' },
+            include: { customer: true },
+          });
+        }
 
-        return { user, customer };
+        let customer = user.customer;
+        if (!customer) {
+          customer = await tx.customer.create({
+            data: { userId: user.id, partnerId: resolvedSponsorId },
+          });
+        } else if (customer.partnerId !== resolvedSponsorId) {
+          customer = await tx.customer.update({
+            where: { id: customer.id },
+            data: { partnerId: resolvedSponsorId },
+          });
+        }
+
+        return { user, customer, sponsorPartnerId: resolvedSponsorId };
       });
 
       res.writeHead(201, { 'Content-Type': 'application/json' });
@@ -482,6 +598,127 @@ const server = http.createServer(async (req, res) => {
         partnerId: partner.id,
         sponsorId: partner.sponsorId,
         user: partner.user,
+      }));
+    }
+    // GET /partner-marketing-summary?partnerId=...
+    if (req.method === 'GET' && req.url.startsWith('/partner-marketing-summary')) {
+      const url = new URL(req.url, 'http://localhost');
+      const partnerId = url.searchParams.get('partnerId');
+      if (!partnerId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'partnerId required' }));
+      }
+
+      const now = new Date();
+      const partner = await prisma.partner.findUnique({
+        where: { id: partnerId },
+        select: {
+          id: true,
+          sponsorId: true,
+          status: true,
+          activatedAt: true,
+          deactivatedAt: true,
+          officeCity: true,
+          officeOpenedAt: true,
+          binary: { select: { leftVolume: true, rightVolume: true } },
+          user: { select: { id: true, email: true } },
+        },
+      });
+
+      if (!partner) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'partner not found' }));
+      }
+
+      const personalMonthDv = await getSelfMonthDv(prisma, partnerId, now);
+      const personalWeekDv = await getSelfWeekDv(prisma, partnerId, now);
+      const leftDv = Number(partner.binary?.leftVolume || 0);
+      const rightDv = Number(partner.binary?.rightVolume || 0);
+      const smallLegDv = Math.min(leftDv, rightDv);
+      const influenceCircles = getMaxInfluenceCircle(personalMonthDv);
+      const rankCode = resolveGrowthRankCode({
+        partnerStatus: partner.status,
+        personalMonthDv,
+        smallLegDv,
+      });
+      const partnerCashbackPercent = getPartnerCashbackPercentByMonthDv(personalMonthDv);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        partnerId: partner.id,
+        sponsorId: partner.sponsorId,
+        user: partner.user,
+        status: partner.status,
+        activatedAt: partner.activatedAt,
+        deactivatedAt: partner.deactivatedAt,
+        personalMonthDv,
+        personalWeekDv,
+        leftDv,
+        rightDv,
+        smallLegDv,
+        influenceCircles,
+        partnerCashbackPercent,
+        rankCode,
+        rankDepth: growthRankRules.find((x) => x.code === rankCode)?.depth || 0,
+        officeCity: partner.officeCity,
+        officeOpenedAt: partner.officeOpenedAt,
+      }));
+    }
+    // GET /partner-bonus-history?partnerId=...&from=YYYY-MM-DD&to=YYYY-MM-DD&type=...
+    if (req.method === 'GET' && req.url.startsWith('/partner-bonus-history')) {
+      const url = new URL(req.url, 'http://localhost');
+      const partnerId = url.searchParams.get('partnerId');
+      const type = (url.searchParams.get('type') || 'all').trim();
+      const from = (url.searchParams.get('from') || '').trim();
+      const to = (url.searchParams.get('to') || '').trim();
+      const page = Math.max(1, Number(url.searchParams.get('page') || 1));
+      const perPage = Math.min(100, Math.max(1, Number(url.searchParams.get('perPage') || 50)));
+
+      if (!partnerId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'partnerId required' }));
+      }
+
+      const where = { partnerId };
+      if (type && type !== 'all') {
+        where.type = type;
+      }
+      if (from || to) {
+        where.createdAt = {};
+        if (from) {
+          const fromDate = new Date(`${from}T00:00:00.000Z`);
+          if (!Number.isNaN(fromDate.getTime())) where.createdAt.gte = fromDate;
+        }
+        if (to) {
+          const toDate = new Date(`${to}T23:59:59.999Z`);
+          if (!Number.isNaN(toDate.getTime())) where.createdAt.lte = toDate;
+        }
+      }
+
+      const [total, rows] = await Promise.all([
+        prisma.bonusLedger.count({ where }),
+        prisma.bonusLedger.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * perPage,
+          take: perPage,
+          select: { id: true, type: true, amount: true, note: true, createdAt: true },
+        }),
+      ]);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        total,
+        page,
+        perPage,
+        items: rows.map((r) => ({
+          id: r.id,
+          type: r.type,
+          amountRub: r.amount,
+          amountDv: Number((r.amount / 30).toFixed(2)),
+          note: r.note,
+          createdAt: r.createdAt,
+        })),
       }));
     }
 // GET /debug/partner-id?email=...
@@ -776,7 +1013,19 @@ if (buyerType === 'PARTNER') {
 
 
     let current = startNode;
+const visitedNodeIds = new Set();
+let hops = 0;
 while (current.parentId) {
+  hops += 1;
+  if (hops > 512) {
+    // Защита от аномально длинной/поврежденной цепочки родителей.
+    break;
+  }
+  if (visitedNodeIds.has(current.parentId)) {
+    // Защита от циклов в бинарном дереве.
+    break;
+  }
+  visitedNodeIds.add(current.parentId);
   const parentNodeId = current.parentId;
 
   // берём родителя, чтобы знать его partnerId и идти выше
@@ -864,11 +1113,27 @@ for (const c of chain) {
 
 
 
-    // Partner cashback wallet: пока только СПИСАНИЕ (начисление 2/3/5% сделаем после monthly stats)
+    // Partner cashback wallet: начисление по ЛЗ (2/3/5%) + списание при оплате
     let cashback = null;
     if (buyerType === 'PARTNER') {
       let cbw = await tx.partnerCashbackWallet.findUnique({ where: { partnerId } });
       if (!cbw) cbw = await tx.partnerCashbackWallet.create({ data: { partnerId, balance: 0 } });
+
+      const personalMonthDv = await getSelfMonthDv(tx, partnerId, now);
+      const cashbackPercent = getPartnerCashbackPercentByMonthDv(personalMonthDv);
+      const earned = cashbackPercent > 0 ? Math.floor((totalPrice * cashbackPercent) / 100) : 0;
+      if (earned > 0) {
+        cbw = await tx.partnerCashbackWallet.update({
+          where: { id: cbw.id },
+          data: { balance: { increment: earned } },
+        });
+        await tx.cashbackTransaction.create({
+          data: { walletId: cbw.id, amount: earned, type: 'CASHBACK_EARN', note: `order=${order.id} pct=${cashbackPercent}` },
+        });
+        await tx.bonusLedger.create({
+          data: { partnerId, type: 'PARTNER_CASHBACK', amount: earned, note: `order=${order.id} pct=${cashbackPercent}` },
+        });
+      }
 
       const spend = Math.max(0, Math.floor(useCashbackRub || 0));
       if (spend > 0) {
@@ -877,10 +1142,15 @@ for (const c of chain) {
         await tx.cashbackTransaction.create({ data: { walletId: cbw.id, amount: -spend, type: 'CASHBACK_SPEND', note: `order=${order.id}` } });
       }
 
-      cashback = { walletBalance: cbw.balance, spent: spend };
+      cashback = { walletBalance: cbw.balance, spent: spend, earned, cashbackPercent };
     }
 
   return { order, influence, cashback, dv: totalDv, totalPrice, upgradedPartner };
+  }, {
+    // В /purchase много последовательных операций (order + binary + бонусы),
+    // дефолтного таймаута интерактивной транзакции Prisma иногда не хватает.
+    maxWait: 10000,
+    timeout: 60000,
   });
 
   res.writeHead(201, { 'Content-Type': 'application/json' });

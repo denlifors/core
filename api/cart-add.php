@@ -29,7 +29,7 @@ if (!$product) {
     exit;
 }
 
-if ($quantity > $product['stock']) {
+if ((int)$product['stock'] > 0 && $quantity > (int)$product['stock']) {
     echo json_encode(['success' => false, 'error' => 'Not enough stock']);
     exit;
 }
@@ -44,8 +44,8 @@ try {
         if ($existing) {
             // Update quantity
             $newQuantity = $existing['quantity'] + $quantity;
-            if ($newQuantity > $product['stock']) {
-                $newQuantity = $product['stock'];
+            if ((int)$product['stock'] > 0 && $newQuantity > (int)$product['stock']) {
+                $newQuantity = (int)$product['stock'];
             }
             $stmt = $db->prepare("UPDATE cart SET quantity = :quantity WHERE id = :id");
             $stmt->execute([':quantity' => $newQuantity, ':id' => $existing['id']]);
@@ -64,8 +64,8 @@ try {
         if ($existing) {
             // Update quantity
             $newQuantity = $existing['quantity'] + $quantity;
-            if ($newQuantity > $product['stock']) {
-                $newQuantity = $product['stock'];
+            if ((int)$product['stock'] > 0 && $newQuantity > (int)$product['stock']) {
+                $newQuantity = (int)$product['stock'];
             }
             $stmt = $db->prepare("UPDATE cart SET quantity = :quantity WHERE id = :id");
             $stmt->execute([':quantity' => $newQuantity, ':id' => $existing['id']]);

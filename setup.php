@@ -205,6 +205,23 @@ $sql_statements = [
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+    "CREATE TABLE IF NOT EXISTS partner_status_events (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        event_type ENUM('upgrade', 'downgrade') DEFAULT 'upgrade',
+        old_status_code VARCHAR(64) NULL,
+        new_status_code VARCHAR(64) NOT NULL,
+        bonus_percent DECIMAL(5,2) NULL,
+        message TEXT NULL,
+        event_key VARCHAR(128) NULL,
+        is_shown TINYINT(1) NOT NULL DEFAULT 0,
+        shown_at TIMESTAMP NULL DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_event_key (event_key),
+        INDEX idx_user_shown_created (user_id, is_shown, created_at),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     
     "CREATE TABLE IF NOT EXISTS pages (
         id INT AUTO_INCREMENT PRIMARY KEY,
