@@ -95,7 +95,9 @@ $clientInviteLink = BASE_URL . 'register.php?consultant_id=' . urlencode($consul
     <div class="shopc__catalogHeader">
         <h2 class="shopc__catalogTitle">Наша линейка продуктов</h2>
         <button class="shopc__catalogCart" type="button" onclick="window.location.href='dashboard.php?section=cart'" aria-label="Корзина">
-            <span class="shopc__catalogCartIcon">🛒</span>
+            <span class="shopc__catalogCartIcon">
+                <img src="<?php echo $assetsImg; ?>/icons/Basket.svg" alt="Корзина" />
+            </span>
             <span id="shopc-catalog-cart-badge" class="shopc__catalogCartBadge <?php echo $cartCount > 0 ? '' : 'is-hidden'; ?>">
                 <?php echo $cartCount > 0 ? $cartCount : ''; ?>
             </span>
