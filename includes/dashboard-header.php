@@ -243,7 +243,7 @@ $dashBonusRepresentativeDv = $dashMetrics['bonusByTypeRub']['representative'] / 
     <link rel="stylesheet" href="<?php echo ASSETS_PATH; ?>/css/dashboard.css?v=<?php echo filemtime(dirname(__DIR__) . '/assets/css/dashboard.css'); ?>">
 </head>
 <body>
-<div class="dash" data-active-section="<?php echo htmlspecialchars($activeSection); ?>">
+<div class="dash" data-active-section="<?php echo htmlspecialchars($activeSection); ?>" <?php echo (!$isPartnerUser) ? 'data-user-type="client"' : 'data-user-type="partner"'; ?>>
   <div class="dash__layout">
     <aside class="dash__menu">
       <div class="dash__menuInner">

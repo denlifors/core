@@ -13,11 +13,12 @@ $breadcrumbTitle = null;
 
 // Получаем информацию о пользователе для определения статуса
 $db = getDBConnection();
-$userStmt = $db->prepare("SELECT role FROM users WHERE id = :user_id");
+$userStmt = $db->prepare("SELECT role, core_partner_id FROM users WHERE id = :user_id");
 $userStmt->execute([':user_id' => $_SESSION['user_id']]);
 $userInfo = $userStmt->fetch();
 $userRole = $userInfo['role'] ?? 'user';
 $isClient = ($userRole === 'user');
+$isPartnerUser = ($userRole === 'partner') && !empty($userInfo['core_partner_id']);
 
 // Определяем заголовок страницы в зависимости от секции
 switch ($section) {

@@ -80,6 +80,18 @@ body{
   box-shadow: var(--shadowA);
 }
 
+/* Меню для клиентского аккаунта - ограничение высоты */
+.dash[data-user-type="client"] .dash__menu{
+  max-height: 700px;
+  height: 700px;
+  background: radial-gradient(213.45% 384.97% at 74.44% -113.45%, rgba(223,160,0,0) 0%, rgba(223,160,0,.1) 100%);
+  box-shadow: var(--shadowA);
+}
+
+.dash[data-user-type="client"] .dash__menuInner{
+  bottom: 40px;
+}
+
 .dash__menuInner{
   position:absolute;
   left:13px;
@@ -415,7 +427,7 @@ body{
   opacity:0.55;
 }
 
-.shop__cashbackDv{
+.shop__cashbackIcon{
   position:absolute;
   left:154px;
   top:0;
@@ -494,66 +506,182 @@ body{
   line-height:21px;
 }
 
-.shop__promo{
+/* Карточка реферальной программы */
+.shop__referralCard{
   position:absolute;
   left:447px;
   top:0;
-  width:1083px;
+  width:510px;
   height:220px;
-  border-radius:50px;
-  background:url("../images/solnce-oblaka-nebo-na-utrennem-fone-sinii-belyi-pastel-nyi-nebo-magkii-fokus-abstraktnyi-razmytyi-goluboi-gradient-mirnoi-prirody-otkryt-vid-iz-okna-krasivaa-letnaa-vesna.jpg") center/cover no-repeat;
+  border-radius:25px;
+  background:#FFFFFF;
   box-shadow: 10px 15px 30px rgba(46, 34, 22, 0.1);
   overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  position:relative;
+  background-image: url("../images/SL-022323-56120-042.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
-.shop__promoText{
+.shop__referralCard[hidden]{
+  display:none !important;
+}
+
+.shop__referralContent{
+  position:relative;
+  flex:1;
+  padding:30px 30px 20px;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+}
+
+.shop__referralText{
+  font-family:'Montserrat', sans-serif;
+  font-weight:400;
+  font-size:18px;
+  line-height:26px;
+  color:#FFFFFF;
+  margin-bottom:20px;
+  text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Блок с клиентской ссылкой */
+.shop__referralLinkCard{
+  position:relative;
+  width:384px;
+  height:60px;
+  background: linear-gradient(90deg, #FF9A9E 0%, #FECFEF 50%, #FEB692 100%);
+  box-shadow: 10px 8px 20px rgba(46, 34, 22, 0.15);
+  backdrop-filter: blur(25px);
+  border-radius: 30px;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  padding-left:20px;
+  padding-right:20px;
+  padding-top:10px;
+  box-sizing:border-box;
+}
+
+.shop__referralLinkLabel{
   position:absolute;
-  left:45px;
-  top:53px;
-  width:468px;
+  left:20px;
+  top:10px;
+  font-family:'Montserrat', sans-serif;
+  font-weight:400;
+  font-size:14px;
+  line-height:20px;
+  color:#2E2216;
+  z-index:1;
+}
+
+.shop__referralLinkRow{
+  position:absolute;
+  left:20px;
+  right:20px;
+  bottom:10px;
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  height:20px;
+}
+
+.shop__referralLinkText{
+  flex:1;
   font-family:'Montserrat', sans-serif;
   font-weight:500;
-  font-size:26px;
-  line-height:38px;
+  font-size:15px;
+  line-height:20px;
   color:#2E2216;
-  z-index:2;
-}
-
-.shop__promoRight{
-  position:absolute;
-  right:0;
-  top:0;
-  width:447px;
-  height:220px;
-  border-radius:0 50px 50px 0;
   overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0;
 }
 
-.shop__promoImg{
+.shop__referralLinkActions{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+}
+
+.shop__referralLinkBtn{
+  width:20px;
+  height:20px;
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  flex:none;
+}
+
+.shop__referralLinkBtn img{
+  width:20px;
+  height:20px;
+  object-fit:contain;
+  filter: brightness(0) saturate(100%) invert(13%) sepia(8%) saturate(1000%) hue-rotate(15deg) brightness(95%) contrast(90%);
+}
+
+/* Карточка партнерства */
+.shop__partnershipCard{
+  position:absolute;
+  left:987px;
+  top:0;
+  width:510px;
+  height:220px;
+  border-radius:25px;
+  background:#1a1a1a;
+  box-shadow: 10px 15px 30px rgba(46, 34, 22, 0.1);
+  overflow:hidden;
+  position:relative;
+}
+
+.shop__partnershipImage{
+  position:absolute;
+  inset:0;
+  opacity:0.7;
+}
+
+.shop__partnershipImage img{
   width:100%;
   height:100%;
   object-fit:cover;
 }
 
-.shop__promoObj{
+.shop__partnershipBtn{
   position:absolute;
-  pointer-events:none;
+  left:30px;
+  bottom:30px;
+  height:50px;
+  padding:0 30px;
+  border:none;
+  border-radius:12px;
+  background:#FF8C00;
+  color:#FFFFFF;
+  font-family:'Montserrat', sans-serif;
+  font-weight:500;
+  font-size:20px;
+  line-height:50px;
+  cursor:pointer;
+  z-index:2;
+  box-shadow:0px 4px 12px rgba(0,0,0,0.3);
+  transition:background 0.2s;
 }
 
-.shop__promoObj--a{
-  width:239px;
-  height:239px;
-  left:861px;
-  top:11px;
-  transform: rotate(63.55deg);
-}
-
-.shop__promoObj--b{
-  width:214px;
-  height:268px;
-  left:1058px;
-  top:-103px;
-  transform: rotate(2.84deg);
+.shop__partnershipBtn:hover{
+  background:#FF7A00;
 }
 
 .shop__catalog{
@@ -564,10 +692,15 @@ body{
   height:990px;
 }
 
+.shop__catalogHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  width:100%;
+}
+
 .shop__catalogTitle{
   margin:0;
-  width:666px;
-  height:60px;
   font-family:"Playfair Display", serif;
   font-weight:600;
   font-size:52px;
@@ -576,6 +709,50 @@ body{
   text-transform:capitalize;
   color:#2E2216;
   white-space:nowrap;
+}
+
+.shop__catalogCart{
+  position:relative;
+  width:90px;
+  height:90px;
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  padding:0;
+}
+
+.shop__catalogCartIcon{
+  width:90px;
+  height:90px;
+  border-radius:50%;
+  background:linear-gradient(180deg, #00E3FA 0%, #FFFFFF 129.19%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:46px;
+  color:#2E2216;
+}
+
+.shop__catalogCartBadge{
+  position:absolute;
+  right:0;
+  top:0;
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  background:linear-gradient(319.51deg, #E200F2 0%, #FFFFFF 152.02%);
+  color:#FFFFFF;
+  font-family:'Montserrat', sans-serif;
+  font-weight:500;
+  font-size:23px;
+  line-height:30px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.shop__catalogCartBadge.is-hidden{
+  display:none;
 }
 
 .shop__catalogGrid{
@@ -739,6 +916,14 @@ body{
   line-height:38px;
   color:#FFFFFF;
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+
+.shop__cartBtnIcon{
+  font-size:28px;
 }
 
 .shop__floatingCart{
@@ -5062,32 +5247,31 @@ body{
 }
 
 /* Client shop */
-.shopc__heroRow{
+/* Shop Client - Top section */
+.shopc__top{
   position:absolute;
-  left:46px;
-  top:165px;
-  width:1529px;
-  height:262px;
-  display:flex;
-  gap:80px;
-  align-items:flex-start;
+  left:20px;
+  top:186px;
+  width:1530px;
+  height:220px;
 }
 .shopc__cashbackCard{
-  position:relative;
+  position:absolute;
+  left:0;
+  top:0;
   width:407px;
-  height:262px;
-  filter:drop-shadow(12px 12px 16px rgba(46,34,22,.23));
+  height:220px;
+  filter: drop-shadow(12px 12px 16px rgba(46, 34, 22, 0.23));
   border-radius:25px;
   overflow:hidden;
-  flex:0 0 auto;
 }
 .shopc__cashbackTop{
   position:absolute;
   left:0;
   top:0;
   width:407px;
-  height:200px;
-  background:linear-gradient(180deg, #00E3FA 34.82%, #FFFFFF 168.39%);
+  height:179px;
+  background: linear-gradient(180deg, #00E3FA 34.82%, #FFFFFF 168.39%);
   border-radius:25px 25px 0 0;
 }
 .shopc__cashbackVector{
@@ -5096,7 +5280,6 @@ body{
   top:-13px;
   width:624px;
   height:221px;
-  opacity:.55;
 }
 .shopc__cashbackCurrency{
   position:absolute;
@@ -5105,21 +5288,21 @@ body{
   width:100px;
   height:40px;
   border-radius:0 0 25px 25px;
-  background:rgba(255,255,255,.5);
+  background: rgba(255, 255, 255, 0.5);
   display:flex;
   align-items:center;
   justify-content:center;
   font-family:'Montserrat', sans-serif;
   font-weight:500;
-  font-size:40px;
-  line-height:42px;
+  font-size:32px;
+  line-height:40px;
   color:#2E2216;
 }
 .shopc__cashbackMetric{
   position:absolute;
   left:30px;
   right:30px;
-  top:95px;
+  top:74px;
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
@@ -5134,19 +5317,18 @@ body{
 .shopc__cashbackValue{
   font-family:'Montserrat', sans-serif;
   font-weight:600;
-  font-size:32px;
+  font-size:40px;
   line-height:40px;
-  text-align:right;
   color:#2E2216;
 }
 .shopc__cashbackBottom{
   position:absolute;
   left:0;
-  top:200px;
+  bottom:0;
   width:407px;
   height:62px;
+  background: linear-gradient(148.31deg, #00CCE1 18.01%, #FFFFFF 237.34%);
   border-radius:0 0 25px 25px;
-  background:linear-gradient(148.31deg, #00CCE1 18.01%, #FFFFFF 237.34%);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -5171,121 +5353,453 @@ body{
   line-height:21px;
 }
 .shopc__leftCard{
-  position:relative;
-  width:555px;
-  height:262px;
-  border-radius:30px;
-  background: linear-gradient(180deg, #64FF80 0%, #FFFFFF 100%);
-  box-shadow:12px 12px 16px rgba(46,34,22,.23);
+  position:absolute;
+  left:447px;
+  top:0;
+  width:510px;
+  height:220px;
+  border-radius:25px;
+  background:#FFFFFF;
+  box-shadow: 10px 15px 30px rgba(46, 34, 22, 0.1);
   overflow:hidden;
-  flex:0 0 auto;
-  padding:20px 35px;
-}
-.shopc__leftCard::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  background:url("../images/products/sulka.jpg") center/cover no-repeat;
-  opacity:.22;
-  pointer-events:none;
-}
-.shopc__leftText{
+  display:flex;
+  flex-direction:column;
   position:relative;
-  z-index:1;
-  font-family:'Montserrat', sans-serif;
-  font-weight:500;
-  font-size:22px;
-  line-height:32px;
-  text-align:center;
-  color:#2E2216;
+  background-image: url("../images/SL-022323-56120-042.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
+
+.shopc__leftContent{
+  position:relative;
+  flex:1;
+  padding: 20px 35px 20px;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  align-items: center;
+}
+
+.shopc__leftText{
+  font-family:'Montserrat', sans-serif;
+  font-weight:400;
+  font-size:18px;
+  line-height:26px;
+  color:#2E2216;
+  margin-bottom:20px;
+  text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+/* Блок с клиентской ссылкой */
 .shopc__linkCard{
-  position:absolute;
-  left:85px;
-  top:182px;
+  position:relative;
   width:384px;
   height:60px;
-  border-radius:30px;
-  background:linear-gradient(90deg, #FF9A9E 0%, #FECFEF 50%, #FEB692 100%);
-  box-shadow:10px 8px 20px rgba(46,34,22,.15);
-  padding:6px 20px;
-  z-index:1;
+  background: linear-gradient(90deg, #FF9A9E 0%, #FECFEF 50%, #FEB692 100%);
+  box-shadow: 10px 8px 20px rgba(46, 34, 22, 0.15);
+  backdrop-filter: blur(25px);
+  border-radius: 30px;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  padding-left:20px;
+  padding-right:20px;
+  box-sizing:border-box;
 }
+
 .shopc__linkLabel{
+  position:absolute;
+  left:20px;
+  top:10px;
+  font-family:'Montserrat', sans-serif;
+  font-weight:400;
   font-size:14px;
   line-height:20px;
   color:#2E2216;
+  z-index:1;
 }
-.shopc__linkValue{
-  width:250px;
+
+.shopc__linkRow{
+  position:relative;
+  width:100%;
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  margin-top:20px;
+  box-sizing:border-box;
+  max-width:344px;
+  margin-left:auto;
+  margin-right:auto;
+}
+
+.shopc__linkText{
+  flex:0 1 auto;
+  max-width:250px;
+  font-family:'Montserrat', sans-serif;
+  font-weight:500;
   font-size:15px;
   line-height:20px;
-  font-weight:500;
   color:#2E2216;
-  white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
+  white-space:nowrap;
 }
+
 .shopc__linkActions{
-  position:absolute;
-  right:20px;
-  top:30px;
   display:flex;
+  flex-direction:row;
+  align-items:center;
   gap:8px;
+  flex-shrink:0;
 }
+
 .shopc__linkBtn{
   width:20px;
   height:20px;
   border:none;
   background:transparent;
-  color:#2E2216;
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   padding:0;
+  flex:none;
+}
+
+.shopc__linkBtn img{
+  width:20px;
+  height:20px;
+  object-fit:contain;
+  filter: brightness(0) saturate(100%) invert(13%) sepia(8%) saturate(1000%) hue-rotate(15deg) brightness(95%) contrast(90%);
 }
 .shopc__activateCard{
-  position:relative;
+  position:absolute;
+  left:987px;
+  top:0;
   width:407px;
-  height:262px;
-  border-radius:30px;
-  background:url("../images/products/rukopojatie.jpg") center/cover no-repeat;
-  border:1px solid #FFFFFF;
-  box-shadow:0 4px 12px rgba(0,0,0,.25), inset 0 4px 12px rgba(0,0,0,.25);
-  backdrop-filter:blur(50px);
-  flex:0 0 auto;
+  height:220px;
+  border-radius:25px;
+  overflow:hidden;
+  background:#1a1a1a;
+  box-shadow: 10px 15px 30px rgba(46, 34, 22, 0.1);
+}
+.shopc__activateBg{
+  position:absolute;
+  left:0;
+  top:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+}
+.shopc__activateImg{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  opacity:0.7;
 }
 .shopc__activateBtn{
   position:absolute;
-  left:71px;
-  top:190px;
-  width:264px;
-  height:52px;
+  left:50%;
+  bottom:30px;
+  transform:translateX(-50%);
+  height:50px;
+  padding:0 30px;
   border:none;
+  border-radius:12px;
+  background:#FF8C00;
+  color:#FFFFFF;
+  font-family:'Montserrat', sans-serif;
+  font-weight:500;
+  font-size:20px;
+  line-height:50px;
+  cursor:pointer;
+  z-index:2;
+  box-shadow:0px 4px 12px rgba(0,0,0,0.3);
+  transition:background 0.2s;
+  white-space:nowrap;
+}
+.shopc__activateBtn:hover{
+  background:#FF7A00;
+}
+.shopc__catalog{
+  position:absolute;
+  left:20px;
+  top:446px;
+  width:1529px;
+  height:990px;
+}
+.shopc__catalogHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  width:100%;
+}
+
+.shopc__catalogTitle{
+  margin:0;
+  font-family:"Playfair Display", serif;
+  font-weight:600;
+  font-size:52px;
+  line-height:60px;
+  letter-spacing:0.02em;
+  text-transform:capitalize;
+  color:#2E2216;
+  white-space:nowrap;
+}
+
+.shopc__catalogCart{
+  position:relative;
+  width:90px;
+  height:90px;
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  padding:0;
+}
+
+.shopc__catalogCartIcon{
+  width:90px;
+  height:90px;
+  border-radius:50%;
+  background:linear-gradient(180deg, #00E3FA 0%, #FFFFFF 129.19%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:46px;
+  color:#2E2216;
+}
+
+.shopc__catalogCartBadge{
+  position:absolute;
+  right:0;
+  top:0;
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  background:linear-gradient(319.51deg, #E200F2 0%, #FFFFFF 152.02%);
+  color:#FFFFFF;
+  font-family:'Montserrat', sans-serif;
+  font-weight:500;
+  font-size:23px;
+  line-height:30px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.shopc__catalogCartBadge.is-hidden{
+  display:none;
+}
+.shopc__catalogGrid{
+  position:absolute;
+  left:0;
+  top:143px;
+  width:1529px;
+  display:grid;
+  grid-template-columns:repeat(3, 407px);
+  gap:154px;
+}
+/* Product cards для клиентов */
+.shopc__productCard{
+  width:407px;
+  height:847px;
+  position:relative;
+  background:rgba(255, 255, 255, 0.3);
+  border:1px solid #FFFFFF;
+  backdrop-filter:blur(50px);
   border-radius:30px;
-  background:linear-gradient(180deg, #FFBB32 16.19%, #FFFFFF 159.82%);
-  box-shadow:0 8px 20px rgba(0,0,0,.15), 0 0 40px rgba(0,0,0,.15);
+  box-shadow: inset 0px 4px 12px rgba(0,0,0,0.25), 0px 4px 12px rgba(0,0,0,0.25);
+}
+.shopc__productImageWrap{
+  position:absolute;
+  left:0;
+  top:0;
+  display:block;
+  width:407px;
+  height:467px;
+  border-radius:30px 30px 0 0;
+  overflow:hidden;
+  box-shadow:0px 0px 12px rgba(0,0,0,0.25), inset 0px 4px 12px rgba(0,0,0,0.25);
+  z-index:1;
+}
+.shopc__productImage{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.shopc__productDots{
+  position:absolute;
+  top:479px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:6px;
+}
+.shopc__productDots span{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#D9D9D9;
+}
+.shopc__productDots .is-active{
+  background: radial-gradient(275% 318.67% at 175% -37.5%, #FFFFFF 0%, #00E3FA 50.84%);
+}
+.shopc__productPrice{
+  position:absolute;
+  left:20px;
+  top:499px;
+  font-family:'Montserrat', sans-serif;
+  font-weight:600;
+  font-size:40px;
+  line-height:40px;
+  color:#2E2216;
+}
+.shopc__productMeta{
+  position:absolute;
+  left:20px;
+  right:20px;
+  top:559px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
   font-family:'Montserrat', sans-serif;
   font-weight:500;
   font-size:25px;
   line-height:32px;
   color:#2E2216;
-  cursor:pointer;
 }
-.shopc__catalog{
+.shopc__metaCheck{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  background:linear-gradient(58.59deg, #64FF80 0%, #FFFFFF 174.47%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+}
+.shopc__productName{
   position:absolute;
-  left:46px;
-  top:490px;
-  width:1529px;
-  height:967px;
+  left:20px;
+  top:611px;
+  width:362px;
+  display:block;
+  font-family:'Montserrat', sans-serif;
+  font-weight:500;
+  font-size:25px;
+  line-height:32px;
+  color:#2E2216;
+  text-decoration:none;
 }
-.shopc__title{
-  margin:0;
-  font-family:'Playfair Display', serif;
-  font-weight:600;
-  font-size:52px;
-  line-height:60px;
-  letter-spacing:.02em;
+.shopc__productStock{
+  position:absolute;
+  left:20px;
+  top:663px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-family:'Montserrat', sans-serif;
+  font-weight:400;
+  font-size:25px;
+  line-height:32px;
+  color:#7F7F7F;
+}
+.shopc__stockDot{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
   color:#2E2216;
 }
-.shopc__grid{
-  margin-top:60px;
+.shopc__stockDot.is-in{
+  background:linear-gradient(58.59deg, #64FF80 0%, #FFFFFF 174.47%);
+}
+.shopc__stockDot.is-out{
+  background:linear-gradient(180deg, #FF3232 16.19%, #FFFFFF 159.82%);
+}
+.shopc__cartBtn{
+  position:absolute;
+  left:20px;
+  right:20px;
+  bottom:40px;
+  height:60px;
+  border:none;
+  border-radius:12px;
+  background:linear-gradient(319.51deg, #E200F2 0%, #FFFFFF 152.02%);
+  box-shadow:0px 4px 4px rgba(0,0,0,0.25);
+  font-family:'Montserrat', sans-serif;
+  font-weight:500;
+  font-size:32px;
+  line-height:38px;
+  color:#FFFFFF;
+  cursor:pointer;
+  transition:all 0.3s ease;
+}
+.shopc__cartBtn:hover:not(:disabled){
+  transform:translateY(-2px);
+  box-shadow:0px 6px 8px rgba(0,0,0,0.3);
+}
+.shopc__cartBtn:disabled{
+  opacity:0.6;
+  cursor:not-allowed;
+}
+/* Плавающая корзина удалена - используется только в заголовке каталога */
+
+/* Адаптивность для клиентской страницы магазина - только для очень маленьких экранов */
+@media (max-width: 1600px) {
+  .dash[data-user-type="client"] .dash__layout {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .dash[data-user-type="client"] .dash__glass {
+    width: calc(100% - 175px);
+  }
+  
+  .shopc__top {
+    width: calc(100% - 40px);
+  }
+  
+  .shopc__catalog {
+    width: calc(100% - 40px);
+  }
+  
+  .shopc__catalogGrid {
+    width: 100%;
+  }
+}
+
+/* Адаптивность только для очень маленьких экранов (планшеты и мобильные) */
+@media (max-width: 1000px) {
+  .shopc__top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    height: auto;
+  }
+  
+  .shopc__cashbackCard,
+  .shopc__leftCard,
+  .shopc__activateCard {
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    flex: 1;
+    min-width: 300px;
+  }
+  
+  .shopc__catalogGrid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+  }
 }

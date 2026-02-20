@@ -36,7 +36,9 @@ $consultantRef = (string)($registrationId ?: ($userData['id'] ?? ''));
 $clientInviteLink = BASE_URL . 'register.php?consultant_id=' . urlencode($consultantRef);
 ?>
 
-<section class="shopc__heroRow">
+<!-- Верхняя секция с карточками -->
+<section class="shopc__top">
+    <!-- Карточка кэшбэка -->
     <article class="shopc__cashbackCard">
         <div class="shopc__cashbackTop"></div>
         <img class="shopc__cashbackVector" src="<?php echo $assetsImg; ?>/icons/vector.svg" alt="" />
@@ -53,30 +55,53 @@ $clientInviteLink = BASE_URL . 'register.php?consultant_id=' . urlencode($consul
         </div>
     </article>
 
+    <!-- Карточка с текстом приглашения -->
     <article class="shopc__leftCard">
-        <div class="shopc__leftText">
-            Приглашайте клиентов по вашей ссылке и получайте 10% с каждой покупки.
-            Накапливайте и оплачивайте до 50% с покупки ваших товаров.
-        </div>
-        <div class="shopc__linkCard">
-            <div class="shopc__linkLabel">Клиентская ссылка:</div>
-            <div class="shopc__linkValue" id="shopc-client-link"><?php echo htmlspecialchars($clientInviteLink); ?></div>
-            <div class="shopc__linkActions">
-                <button type="button" class="shopc__linkBtn" onclick="copyClientShopLink()">⧉</button>
-                <button type="button" class="shopc__linkBtn" onclick="window.open('https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(document.getElementById('shopc-client-link').textContent),'_blank')">⌗</button>
-                <button type="button" class="shopc__linkBtn" onclick="navigator.share ? navigator.share({url: document.getElementById('shopc-client-link').textContent}) : copyClientShopLink()">↗</button>
+        <div class="shopc__leftContent">
+            <div class="shopc__leftText">
+                Приглашайте клиентов по вашей ссылке и получайте 10% с каждой покупки. Накапливайте и оплачивайте до 50% с покупки ваших товаров.
+            </div>
+            <div class="shopc__linkCard">
+                <span class="shopc__linkLabel">Клиентская ссылка:</span>
+                <div class="shopc__linkRow">
+                    <span class="shopc__linkText" id="shopc-client-link"><?php echo htmlspecialchars($clientInviteLink); ?></span>
+                    <div class="shopc__linkActions">
+                        <button type="button" class="shopc__linkBtn" onclick="copyClientShopLink()" title="Копировать">
+                            <img src="<?php echo $assetsImg; ?>/icons/copy.svg" alt="Копировать" />
+                        </button>
+                        <button type="button" class="shopc__linkBtn" onclick="showQRCodeClient()" title="QR код">
+                            <img src="<?php echo $assetsImg; ?>/icons/qr.svg" alt="QR код" />
+                        </button>
+                        <button type="button" class="shopc__linkBtn" onclick="shareClientShopLink()" title="Поделиться">
+                            <img src="<?php echo $assetsImg; ?>/icons/share.svg" alt="Поделиться" />
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </article>
 
+    <!-- Карточка "Стать партнёром" с фоном -->
     <article class="shopc__activateCard">
-        <button type="button" class="shopc__activateBtn" onclick="window.location.href='dashboard.php?section=cart'">Стать партнёром</button>
+        <div class="shopc__activateBg">
+            <img class="shopc__activateImg" src="<?php echo $assetsImg; ?>/products/rukopojatie.jpg" alt="" />
+        </div>
+        <button type="button" class="shopc__activateBtn" onclick="window.location.href='partnership.php'">Стать партнёром</button>
     </article>
 </section>
 
+<!-- Секция каталога -->
 <section class="shopc__catalog">
-    <h2 class="shopc__title">Наша линейка продуктов</h2>
-    <div class="shop__catalogGrid shopc__grid">
+    <div class="shopc__catalogHeader">
+        <h2 class="shopc__catalogTitle">Наша линейка продуктов</h2>
+        <button class="shopc__catalogCart" type="button" onclick="window.location.href='dashboard.php?section=cart'" aria-label="Корзина">
+            <span class="shopc__catalogCartIcon">🛒</span>
+            <span id="shopc-catalog-cart-badge" class="shopc__catalogCartBadge <?php echo $cartCount > 0 ? '' : 'is-hidden'; ?>">
+                <?php echo $cartCount > 0 ? $cartCount : ''; ?>
+            </span>
+        </button>
+    </div>
+    <div class="shopc__catalogGrid">
         <?php foreach ($products as $idx => $product): ?>
             <?php
                 $productId = (int)($product['id'] ?? 0);
@@ -85,6 +110,7 @@ $clientInviteLink = BASE_URL . 'register.php?consultant_id=' . urlencode($consul
                 $price = (float)($product['price'] ?? 3000);
                 $status = (string)($product['status'] ?? 'active');
                 $isInStock = ($status === 'active');
+
                 $productImage = $fallbackImages[$idx] ?? $fallbackImages[0];
                 if (!empty($product['image'])) {
                     $candidate = (string)$product['image'];
@@ -99,43 +125,44 @@ $clientInviteLink = BASE_URL . 'register.php?consultant_id=' . urlencode($consul
                 }
                 $productUrl = $productId > 0 ? ('dashboard.php?section=product&id=' . $productId) : '#';
             ?>
-            <article class="shop__productCard">
-                <a class="shop__productImageWrap" href="<?php echo htmlspecialchars($productUrl); ?>">
+            <article class="shopc__productCard">
+                <a class="shopc__productImageWrap" href="<?php echo htmlspecialchars($productUrl); ?>">
                     <img
-                        class="shop__productImage"
+                        class="shopc__productImage"
                         src="<?php echo htmlspecialchars($productImage); ?>"
                         alt="<?php echo htmlspecialchars($name); ?>"
                         onerror="this.onerror=null;this.src='<?php echo htmlspecialchars($fallbackImages[$idx] ?? $fallbackImages[0]); ?>';"
                     />
                 </a>
 
-                <div class="shop__productDots">
+                <div class="shopc__productDots">
                     <span class="is-active"></span><span></span><span></span><span></span><span></span>
                 </div>
-                <div class="shop__productPrice"><?php echo number_format($price, 0, ',', ' '); ?> ₽ (200DV)</div>
-                <div class="shop__productMeta">
-                    <span>ДенЛиФорс</span><span class="shop__metaCheck">✓</span><span>Оригинал</span>
+
+                <div class="shopc__productPrice"><?php echo number_format($price, 0, ',', ' '); ?> ₽</div>
+
+                <div class="shopc__productMeta">
+                    <span>ДенЛиФорс</span>
+                    <span class="shopc__metaCheck">✓</span>
+                    <span>Оригинал</span>
                 </div>
-                <a class="shop__productName" href="<?php echo htmlspecialchars($productUrl); ?>">
+
+                <a class="shopc__productName" href="<?php echo htmlspecialchars($productUrl); ?>">
                     <?php echo htmlspecialchars(mb_strimwidth($name, 0, 46, '...')); ?>
                 </a>
-                <div class="shop__productStock">
+
+                <div class="shopc__productStock">
                     <span><?php echo $isInStock ? 'В наличии' : 'Нет в наличии'; ?></span>
-                    <span class="shop__stockDot <?php echo $isInStock ? 'is-in' : 'is-out'; ?>">✓</span>
+                    <span class="shopc__stockDot <?php echo $isInStock ? 'is-in' : 'is-out'; ?>">✓</span>
                 </div>
-                <button class="shop__cartBtn" type="button" <?php echo $productId > 0 ? ('onclick="addToCart(' . $productId . ')"') : 'disabled'; ?>>
+
+                <button class="shopc__cartBtn" type="button" <?php echo $productId > 0 ? ('onclick="addToCart(' . $productId . ')"') : 'disabled'; ?>>
                     🛒 В корзину
                 </button>
             </article>
         <?php endforeach; ?>
     </div>
 
-    <button class="shop__floatingCart" type="button" aria-label="Корзина" onclick="window.location.href='dashboard.php?section=cart'">
-        <span class="shop__floatingCartIcon">🛒</span>
-        <span id="shop-floating-cart-badge" class="shop__floatingCartBadge <?php echo $cartCount > 0 ? '' : 'is-hidden'; ?>">
-            <?php echo $cartCount > 0 ? $cartCount : ''; ?>
-        </span>
-    </button>
 </section>
 
 <script>
@@ -143,11 +170,13 @@ function refreshFloatingCartCount() {
   fetch('<?php echo BASE_URL; ?>api/cart-count.php')
     .then((r) => r.json())
     .then((data) => {
-      const badge = document.getElementById('shop-floating-cart-badge');
-      if (!badge) return;
+      const catalogBadge = document.getElementById('shopc-catalog-cart-badge');
       const count = (data && data.success) ? Number(data.count || 0) : 0;
-      badge.textContent = count > 0 ? String(count) : '';
-      badge.classList.toggle('is-hidden', count < 1);
+      
+      if (catalogBadge) {
+        catalogBadge.textContent = count > 0 ? String(count) : '';
+        catalogBadge.classList.toggle('is-hidden', count < 1);
+      }
     })
     .catch(() => {});
 }
@@ -168,9 +197,47 @@ function addToCart(productId) {
   .catch(() => alert('Ошибка добавления в корзину'));
 }
 function copyClientShopLink() {
-  const text = document.getElementById('shopc-client-link')?.textContent || '';
-  if (!text) return;
-  navigator.clipboard.writeText(text).catch(() => {});
+  const linkText = document.getElementById('shopc-client-link');
+  if (linkText) {
+    const text = linkText.textContent || '';
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Ссылка скопирована в буфер обмена');
+    }).catch(() => {
+      // Fallback для старых браузеров
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      alert('Ссылка скопирована в буфер обмена');
+    });
+  }
+}
+
+function showQRCodeClient() {
+  const linkText = document.getElementById('shopc-client-link');
+  if (linkText) {
+    const url = linkText.textContent || '';
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
+    window.open(qrUrl, '_blank');
+  }
+}
+
+function shareClientShopLink() {
+  const linkText = document.getElementById('shopc-client-link');
+  if (linkText) {
+    const url = linkText.textContent || '';
+    if (navigator.share) {
+      navigator.share({
+        title: 'Реферальная ссылка ДенЛиФорс',
+        text: 'Присоединяйтесь к ДенЛиФорс',
+        url: url
+      }).catch(() => {});
+    } else {
+      copyClientShopLink();
+    }
+  }
 }
 document.addEventListener('DOMContentLoaded', refreshFloatingCartCount);
 </script>

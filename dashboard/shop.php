@@ -1,5 +1,43 @@
 <?php
+if (!defined('BASE_URL')) {
+    require_once dirname(__DIR__) . '/config/config.php';
+}
+require_once dirname(__DIR__) . '/includes/core-client.php';
+
 $db = getDBConnection();
+
+// Получаем данные пользователя
+// Используем $isPartnerUser из dashboard-header.php, если он уже определен
+if (!isset($isPartnerUser)) {
+    $userStmt = $db->prepare("SELECT id, role, core_partner_id FROM users WHERE id = :user_id");
+    $userStmt->execute([':user_id' => $_SESSION['user_id']]);
+    $userData = $userStmt->fetch();
+    $isPartnerUser = (($userData['role'] ?? 'user') === 'partner') && !empty($userData['core_partner_id']);
+} else {
+    // Если $isPartnerUser уже определен, получаем только нужные данные пользователя
+    $userStmt = $db->prepare("SELECT id, role, core_partner_id FROM users WHERE id = :user_id");
+    $userStmt->execute([':user_id' => $_SESSION['user_id']]);
+    $userData = $userStmt->fetch();
+}
+
+// Получаем баланс кэшбэка
+$cashbackBalance = 2300; // Значение по умолчанию для демонстрации
+if ($isPartnerUser && !empty($userData['core_partner_id'])) {
+    $partnerId = (string)$userData['core_partner_id'];
+    // Пытаемся получить баланс кэшбэка из кошелька
+    $walletErr = null;
+    $walletRes = coreGetJson('/partner-cashback-wallet?partnerId=' . urlencode($partnerId), $walletErr);
+    if ($walletRes && ($walletRes['status'] ?? 500) < 400 && !empty($walletRes['data'])) {
+        $cashbackBalance = (int)($walletRes['data']['balance'] ?? 0);
+    }
+}
+
+// Реферальная ссылка (только для партнеров)
+$refConsultantId = (string)($userData['id'] ?? '');
+$referralLink = '';
+if ($isPartnerUser && $refConsultantId !== '') {
+    $referralLink = BASE_URL . 'register.php?consultant_id=' . urlencode($refConsultantId);
+}
 
 // Берем 3 товара для текущего макета магазина
 $productsStmt = $db->query("
@@ -43,17 +81,14 @@ while (count($products) < 3) {
 ?>
 
 <section class="shop__top">
+    <!-- Карточка кэшбэка -->
     <article class="shop__cashbackCard">
         <div class="shop__cashbackTop"></div>
-        <img class="shop__cashbackVector" src="<?php echo $assetsImg; ?>/icons/vector.svg" alt="" />
-
-        <div class="shop__cashbackDv">DV</div>
-
+        <div class="shop__cashbackIcon">₽</div>
         <div class="shop__cashbackMetric">
             <span class="shop__cashbackLabel">Кэшбэк:</span>
-            <span class="shop__cashbackValue">2 %</span>
+            <span class="shop__cashbackValue"><?php echo number_format($cashbackBalance, 0, ',', ' '); ?> ₽</span>
         </div>
-
         <div class="shop__cashbackBottom">
             <a class="shop__cashbackAction" href="#" onclick="return false;">
                 <img src="<?php echo $assetsImg; ?>/icons/convert-card.svg" alt="" />
@@ -62,20 +97,55 @@ while (count($products) < 3) {
         </div>
     </article>
 
-    <section class="shop__promo">
-        <div class="shop__promoText">
-            Достигните статуса “Генеральный директор” и участвуйте в “Жилищной программе”
+    <!-- Карточка реферальной программы (только для партнеров) -->
+    <?php if ($isPartnerUser && !empty($referralLink)): ?>
+    <article class="shop__referralCard">
+        <div class="shop__referralContent">
+            <div class="shop__referralText">
+                Приглашайте клиентов по вашей ссылке и получайте 10% с каждой покупки. Накапливайте и оплачивайте до 50% с покупки ваших товаров.
+            </div>
+            <div class="shop__referralLinkCard">
+                <span class="shop__referralLinkLabel">Клиентская ссылка:</span>
+                <div class="shop__referralLinkRow">
+                    <span class="shop__referralLinkText"><?php echo htmlspecialchars($referralLink); ?></span>
+                    <div class="shop__referralLinkActions">
+                        <button class="shop__referralLinkBtn" type="button" onclick="copyReferralLink()" title="Копировать">
+                            <img src="<?php echo $assetsImg; ?>/icons/copy.svg" alt="Копировать" />
+                        </button>
+                        <button class="shop__referralLinkBtn" type="button" onclick="showQRCode()" title="QR код">
+                            <img src="<?php echo $assetsImg; ?>/icons/qr.svg" alt="QR код" />
+                        </button>
+                        <button class="shop__referralLinkBtn" type="button" onclick="shareReferralLink()" title="Поделиться">
+                            <img src="<?php echo $assetsImg; ?>/icons/share.svg" alt="Поделиться" />
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="shop__promoRight">
-            <img class="shop__promoImg" src="<?php echo $assetsImg; ?>/dom.png" alt="" />
+    </article>
+    <?php endif; ?>
+
+    <!-- Карточка партнерства -->
+    <article class="shop__partnershipCard">
+        <div class="shop__partnershipImage">
+            <img src="<?php echo $assetsImg; ?>/products/rukopojatie.jpg" alt="Партнерство" />
         </div>
-        <img class="shop__promoObj shop__promoObj--a" src="<?php echo $assetsImg; ?>/derevannyi-brelok-na-belom-Photoroom.png" alt="" />
-        <img class="shop__promoObj shop__promoObj--b" src="<?php echo $assetsImg; ?>/2669627_1751-Photoroom.png" alt="" />
-    </section>
+        <button class="shop__partnershipBtn" onclick="window.location.href='partnership.php'">
+            Стать партнёром
+        </button>
+    </article>
 </section>
 
 <section class="shop__catalog">
-    <h2 class="shop__catalogTitle">Наша линейка продуктов</h2>
+    <div class="shop__catalogHeader">
+        <h2 class="shop__catalogTitle">Наша линейка продуктов</h2>
+        <button class="shop__catalogCart" type="button" onclick="window.location.href='dashboard.php?section=cart'" aria-label="Корзина">
+            <span class="shop__catalogCartIcon">🛒</span>
+            <span id="shop-catalog-cart-badge" class="shop__catalogCartBadge <?php echo $cartCount > 0 ? '' : 'is-hidden'; ?>">
+                <?php echo $cartCount > 0 ? $cartCount : ''; ?>
+            </span>
+        </button>
+    </div>
 
     <div class="shop__catalogGrid">
         <?php foreach ($products as $idx => $product): ?>
@@ -118,7 +188,7 @@ while (count($products) < 3) {
                     <span class="is-active"></span><span></span><span></span><span></span><span></span>
                 </div>
 
-                <div class="shop__productPrice"><?php echo number_format($price, 0, ',', ' '); ?> ₽ (200DV)</div>
+                <div class="shop__productPrice"><?php echo number_format($price, 0, ',', ' '); ?> ₽</div>
 
                 <div class="shop__productMeta">
                     <span>ДенЛиФорс</span>
@@ -136,7 +206,8 @@ while (count($products) < 3) {
                 </div>
 
                 <button class="shop__cartBtn" type="button" <?php echo $productId > 0 ? ('onclick="addToCart(' . $productId . ')"') : 'disabled'; ?>>
-                    🛒 В корзину
+                    <span class="shop__cartBtnIcon">🛒</span>
+                    <span>В корзину</span>
                 </button>
             </article>
         <?php endforeach; ?>
@@ -156,17 +227,83 @@ function refreshFloatingCartCount() {
         .then((r) => r.json())
         .then((data) => {
             const badge = document.getElementById('shop-floating-cart-badge');
-            if (!badge) return;
+            const catalogBadge = document.getElementById('shop-catalog-cart-badge');
             const count = (data && data.success) ? Number(data.count || 0) : 0;
-            if (count > 0) {
-                badge.textContent = String(count);
-                badge.classList.remove('is-hidden');
-            } else {
-                badge.textContent = '';
-                badge.classList.add('is-hidden');
+            
+            if (badge) {
+                if (count > 0) {
+                    badge.textContent = String(count);
+                    badge.classList.remove('is-hidden');
+                } else {
+                    badge.textContent = '';
+                    badge.classList.add('is-hidden');
+                }
+            }
+            
+            if (catalogBadge) {
+                if (count > 0) {
+                    catalogBadge.textContent = String(count);
+                    catalogBadge.classList.remove('is-hidden');
+                } else {
+                    catalogBadge.textContent = '';
+                    catalogBadge.classList.add('is-hidden');
+                }
             }
         })
         .catch(() => {});
+}
+
+function copyReferralLink() {
+    const input = document.querySelector('.shop__referralLinkField');
+    if (input) {
+        input.select();
+        document.execCommand('copy');
+        alert('Ссылка скопирована в буфер обмена');
+    }
+}
+
+function copyReferralLink() {
+    const linkText = document.querySelector('.shop__referralLinkText');
+    if (linkText) {
+        const text = linkText.textContent || '';
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Ссылка скопирована в буфер обмена');
+        }).catch(() => {
+            // Fallback для старых браузеров
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('Ссылка скопирована в буфер обмена');
+        });
+    }
+}
+
+function showQRCode() {
+    const linkText = document.querySelector('.shop__referralLinkText');
+    if (linkText) {
+        const url = linkText.textContent || '';
+        const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
+        window.open(qrUrl, '_blank');
+    }
+}
+
+function shareReferralLink() {
+    const linkText = document.querySelector('.shop__referralLinkText');
+    if (linkText) {
+        const url = linkText.textContent || '';
+        if (navigator.share) {
+            navigator.share({
+                title: 'Реферальная ссылка ДенЛиФорс',
+                text: 'Присоединяйтесь к ДенЛиФорс',
+                url: url
+            }).catch(() => {});
+        } else {
+            copyReferralLink();
+        }
+    }
 }
 
 function addToCart(productId) {
